@@ -92,6 +92,7 @@ h2{font-family:"Quicksand",sans-serif;font-size:26px;letter-spacing:-.01em;margi
 .ctl button{border:1.5px solid var(--line);background:var(--surface-2);border-radius:10px;
   padding:9px 12px;font-size:13px;font-weight:500;flex:1}
 .ctl button.primary{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.ctl button:disabled{opacity:.4;cursor:default}
 
 /* expression list */
 .exp{border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:9px;background:var(--surface-2)}

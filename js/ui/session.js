@@ -28,9 +28,14 @@ export function renderSession(){
       </div>
       <div class="wave" id="wave">${Array.from({length:36}).map(()=>'<i></i>').join('')}</div>
       <div class="steps" id="steps">${PHASES.map(()=>'<span></span>').join('')}</div>
-      <div class="ctl"><button id="pauseBtn">⏸ 일시정지</button><button id="skipBtn" class="primary">다음 단계 →</button></div>
+      <div class="ctl">
+        <button id="backBtn">← 이전</button>
+        <button id="pauseBtn">⏸ 일시정지</button>
+        <button id="skipBtn" class="primary">다음 단계 →</button>
+      </div>
     </div>
     <div id="phaseBody"></div>`;
+  document.getElementById('backBtn').onclick=prevPhase;
   document.getElementById('pauseBtn').onclick=togglePause;
   document.getElementById('skipBtn').onclick=nextPhase;
 }
@@ -41,6 +46,7 @@ export function goPhase(i){
   document.getElementById('pName').textContent=p.name;
   document.querySelectorAll('#steps span').forEach((s,idx)=>{s.className=idx<i?'past':idx===i?'on':'';});
   S.remaining=p.sec;startTimer();
+  document.getElementById('backBtn').disabled=(i===0);
   document.getElementById('skipBtn').textContent=i===PHASES.length-1?'세션 완료 ✓':'다음 단계 →';
   const body=document.getElementById('phaseBody');
   if(p.key==="review")renderReview(body);
@@ -50,6 +56,7 @@ export function goPhase(i){
 }
 
 export function nextPhase(){if(S.phase<PHASES.length-1)goPhase(S.phase+1);else finishSession();}
+export function prevPhase(){if(S.phase>0)goPhase(S.phase-1);}
 
 function startTimer(){clearInterval(S.tick);S.running=true;
   document.getElementById('pauseBtn').textContent='⏸ 일시정지';paintWave();updateTimerUI();

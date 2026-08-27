@@ -41,7 +41,7 @@ async function genParagraph(){
   const L=effLevel();const modeTxt=S.mode==='work'?'business and work life':'everyday life and culture';
   const lvl=L==='beg'?'simple beginner vocabulary and short-to-medium sentences':L==='adv'?'advanced vocabulary, idioms, and longer multi-clause sentences':'natural intermediate English';
   const sys="You write ORIGINAL short English opinion-column passages for read-aloud shadowing practice by a Korean learner. Write your OWN words; never copy any real article. Flowing, natural prose with good spoken rhythm. Return ONLY JSON.";
-  const prompt=`Write an ORIGINAL newspaper-column-style passage of about 8-10 sentences (one flowing paragraph) in English on a timely, interesting topic related to ${modeTxt}. Use ${lvl}. It should read naturally aloud. Return JSON: {"title":"short title","paragraph":"the passage as one paragraph","glossary":[{"en":"useful phrase from the passage","ko":"Korean meaning"} x4],"summary_ko":"one-sentence Korean summary"}`;
+  const prompt=`Write an ORIGINAL newspaper-column-style passage of about 8-10 sentences (one flowing paragraph) in English on a timely, interesting topic related to ${modeTxt}. Use ${lvl}. It should read naturally aloud. Return JSON: {"title":"short title","paragraph":"the passage as one paragraph","paragraph_ko":"a full, natural Korean translation of the whole paragraph","glossary":[{"en":"useful phrase from the passage","ko":"Korean meaning"} x4],"summary_ko":"one-sentence Korean summary"}`;
   return await geminiCall([{role:'user',content:prompt}],sys,true);
 }
 async function renderShadowParagraph(body,seg){
@@ -70,6 +70,7 @@ function paintPara(body,seg,p){
       ${hasKey()?`<button class="btn ghost small" id="regen">🔄 새 지문</button>`:''}
     </div>
     <div class="script read lookup" id="paraText">${wordWrap(para)}</div>
+    ${p.paragraph_ko?`<div class="gloss"><h4>한글 해석</h4><p class="lead" style="margin:0;line-height:1.7">${esc(p.paragraph_ko)}</p></div>`:''}
     <div class="gloss"><h4>Key expressions</h4>${gloss.map(g=>`<div class="g"><b>${esc(g.en)}</b><span>${esc(g.ko)}</span></div>`).join('')}</div>
     <button class="btn ghost small" id="saveGloss" style="margin-top:12px">＋ 이 표현들 노트에 저장</button>
     <div style="border-top:1px solid var(--line);margin:18px 0 0;padding-top:16px">
