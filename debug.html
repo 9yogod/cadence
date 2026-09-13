@@ -118,9 +118,45 @@ if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
   }).catch(function () { add('등록된 ServiceWorker', '확인 불가'); });
 }
 
+/* 마지막 검사: 실제 앱 화면(index.html)을 그대로 띄워서 카드가 DOM에 박히는지,
+   박혔다면 눈에 보이는 상태인지 확인. 같은 출처라 안을 들여다볼 수 있음. */
+var fr = document.createElement('iframe');
+fr.src = 'index.html?embed=' + Date.now();
+fr.style.cssText = 'position:absolute;left:-9999px;width:413px;height:900px;border:0';
+fr.onload = function () {
+  setTimeout(function () {
+    try {
+      var d = fr.contentDocument, w = fr.contentWindow;
+      var app = d.getElementById('app');
+      var rendered = !!(app && app.innerHTML.length > 500);
+      add('앱 홈 화면이 그려짐?', rendered ? 'YES' : 'NO — 앱이 아예 안 그려짐', rendered);
+
+      var c = d.getElementById('installCard');
+      add('실제 앱 화면에 카드가 있음?', c ? 'YES' : 'NO — DOM에 없음', !!c);
+
+      if (c) {
+        var cs = w.getComputedStyle(c);
+        var visible = c.offsetHeight > 0 && cs.display !== 'none' && cs.visibility !== 'hidden' && cs.opacity !== '0';
+        add('카드가 눈에 보이는 상태?',
+            visible ? 'YES — 보여야 정상'
+                    : 'NO — 숨겨짐 (display:' + cs.display + ' / height:' + c.offsetHeight + ')',
+            visible);
+        var t = c.querySelector('.t');
+        add('카드 문구', t ? t.textContent : '(없음)');
+        add('카드 배경색', cs.backgroundColor);
+      }
+      add('하단 앱 설치 버튼', d.getElementById('installBtn') ? 'YES' : 'NO', !!d.getElementById('installBtn'));
+    } catch (e) {
+      add('실제 앱 화면 검사', '실패: ' + e.message, false);
+    }
+    document.getElementById('raw').value = lines.join(String.fromCharCode(10));
+  }, 4000);
+};
+document.body.appendChild(fr);
+
 setTimeout(function () {
-  document.getElementById('raw').value = lines.join('\n');
-}, 2500);
+  document.getElementById('raw').value = lines.join(String.fromCharCode(10));
+}, 9000);
 
 document.getElementById('reset').onclick = function () {
   this.textContent = '지우는 중…';
