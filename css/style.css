@@ -243,3 +243,89 @@ a.link{color:var(--accent);font-weight:600;text-decoration:none}
 .interim{font-size:13px;color:var(--muted);font-style:italic;margin-top:6px;min-height:1.2em}
 .interim b{color:var(--ink);font-style:normal;font-weight:500}
 .interim.err{color:var(--live);font-style:normal}
+
+/* ============================================================
+   MOBILE / TOUCH
+   The layout was already fluid; what follows is what a phone
+   specifically needs — real tap targets, no double-tap zoom
+   delay, a bottom sheet that can't run off the bottom of a
+   short screen, and safe-area padding when launched from the
+   home screen (standalone, where there is no browser chrome).
+   ============================================================ */
+
+/* Kill the 300ms tap delay + the grey flash on tap. Text stays selectable inside
+   .lookup passages — the word-lookup feature depends on selection. */
+button,.choice,.util,.pill,.switch,.tabs button{
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;user-select:none;
+}
+.lookup,.lookup *{-webkit-user-select:text;user-select:text}
+
+/* Hover styling is a lie on touch screens: it sticks after a tap. Apply it only
+   where a real pointer exists. */
+@media (hover:none){
+  .btn:hover{filter:none}
+  .w:hover{background:transparent}
+}
+
+/* Bottom sheet: cap it and let it scroll, so a long definition or the key form is
+   never stranded below the fold on a short/landscape phone. */
+.sheet .panel{max-height:86vh;max-height:86dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.sheet{overscroll-behavior:contain}
+
+/* Button rows wrap instead of crushing Korean labels into 2-3 characters per line. */
+.row{flex-wrap:wrap}
+.row .btn{min-width:max-content}
+
+/* Tap targets. 12px inline text links inside cards were ~16px tall. */
+.mini button,.sent .act button,.fbchip button,.hrow .mini button{
+  min-height:34px;display:inline-flex;align-items:center;
+}
+.iconbtn,.ctl button,.tabs button{min-height:44px}
+.notesbtn{min-height:38px}
+
+/* Narrow phones (iPhone SE / mini, 360-390px Androids): reclaim horizontal space
+   that the generous desktop padding was eating. */
+@media (max-width:420px){
+  .wrap{padding:16px 13px 56px}
+  .card{padding:18px 15px;border-radius:19px}
+  .stage{padding:14px 15px;border-radius:19px}
+  h2{font-size:23px}
+  .lead{font-size:14.5px;margin-bottom:16px}
+  .grid2{gap:8px}
+  .choice{padding:12px 11px;border-radius:16px}
+  .btn{padding:14px 18px}
+  .btn.small{padding:11px 14px;font-size:13.5px}
+  .exp,.sent,.hrow{padding:12px 13px}
+  .sheet .panel{padding:20px 16px calc(20px + env(safe-area-inset-bottom))}
+  .bub{max-width:88%}
+  .util .uicon{width:44px;height:44px}
+  .timer{font-size:20px}
+  .brand h1{font-size:19px}
+  .notesbtn{padding:7px 10px;font-size:12.5px}
+}
+
+/* Very narrow (≤340px): the 4-up level row is the first thing to break. */
+@media (max-width:340px){
+  #lvlSel{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .brand .tag{display:none}
+}
+
+/* Installed to the home screen: no browser chrome, so the app owns the status-bar
+   inset itself, and the sticky stage has to clear it. */
+@media (display-mode:standalone){
+  .wrap{padding-top:max(20px,env(safe-area-inset-top))}
+  .stage{top:max(8px,env(safe-area-inset-top))}
+  body{overscroll-behavior-y:none}  /* no pull-to-refresh mid-session */
+}
+
+/* Landscape phones: the sticky stage + sheet would otherwise eat the whole viewport. */
+@media (max-height:480px) and (orientation:landscape){
+  .stage{position:static}
+  .sheet .panel{max-height:94vh;max-height:94dvh}
+}
+
+/* Word-lookup button flipped below the selection (see lookup.js: near the top of the
+   viewport, and clear of iOS's own selection callout). */
+.lookbtn.below{transform:translate(-50%,28%)}

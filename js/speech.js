@@ -11,9 +11,35 @@ function pickVoice(){const vs=speechSynthesis.getVoices();
   voice=vs.find(v=>/en-US/i.test(v.lang)&&/female|Samantha|Google US/i.test(v.name))||vs.find(v=>/en-US/i.test(v.lang))||vs.find(v=>/^en/i.test(v.lang))||null;}
 if('speechSynthesis'in window){speechSynthesis.onvoiceschanged=pickVoice;pickVoice();}
 
+/* iOS/Safari (and Chrome on Android to a lesser degree) refuse speechSynthesis.speak()
+   unless the *first* call of the page's life happens inside a real user gesture — which
+   is never true here, because playback is always triggered a tick later by a timer, a
+   phase change, or a streamed reply. So on the very first touch/click anywhere we speak
+   a silent utterance to unlock the engine; every later call then works normally.
+   Mobile also populates getVoices() lazily, so re-pick if it was empty at load. */
+let ttsUnlocked=false;
+function unlockTTS(){
+  if(ttsUnlocked||!('speechSynthesis'in window))return;
+  ttsUnlocked=true;
+  try{
+    const u=new SpeechSynthesisUtterance('');u.volume=0;speechSynthesis.speak(u);
+  }catch(e){/* engine unavailable; speak() falls back to its own guard */}
+  if(!voice)pickVoice();
+}
+if(typeof document!=='undefined'){
+  document.addEventListener('touchend',unlockTTS,{once:true,capture:true});
+  document.addEventListener('click',unlockTTS,{once:true,capture:true});
+}
+
+function utter(text,rate){
+  if(!voice)pickVoice();
+  const u=new SpeechSynthesisUtterance(text);u.lang="en-US";u.rate=rate;if(voice)u.voice=voice;
+  return u;
+}
+
 export function speak(text,rate=.92){
   if(!('speechSynthesis'in window))return toast("이 브라우저는 음성 재생을 지원하지 않아요");
-  speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="en-US";u.rate=rate;if(voice)u.voice=voice;speechSynthesis.speak(u);
+  speechSynthesis.cancel();speechSynthesis.speak(utter(text,rate));
 }
 
 /* Like speak(), but doesn't cancel what's already queued — calling this repeatedly
@@ -22,7 +48,7 @@ export function speak(text,rate=.92){
    reply to finish generating before saying anything. */
 export function speakQueued(text,rate=.92){
   if(!('speechSynthesis'in window)||!text)return;
-  const u=new SpeechSynthesisUtterance(text);u.lang="en-US";u.rate=rate;if(voice)u.voice=voice;speechSynthesis.speak(u);
+  speechSynthesis.speak(utter(text,rate));
 }
 
 /* ---- STT ---- */

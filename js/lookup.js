@@ -18,13 +18,21 @@ function ensureLookBtn(){if(lookBtn)return lookBtn;
   document.body.appendChild(lookBtn);return lookBtn;}
 function hideLookBtn(){if(lookBtn)lookBtn.classList.remove('show');}
 function onSelect(){const s=window.getSelection();const t=(s.toString()||'').trim();
-  if(!t||t.length>70){hideLookBtn();return;}
+  if(!t||t.length>70||!s.rangeCount){hideLookBtn();return;}
   let n=s.anchorNode;while(n&&n.nodeType!==1)n=n.parentNode;
   if(!(n&&n.closest&&n.closest('.lookup'))){hideLookBtn();return;}
   const r=s.getRangeAt(0).getBoundingClientRect();const b=ensureLookBtn();
-  b.style.left=(r.left+r.width/2)+'px';b.style.top=r.top+'px';b.classList.add('show');}
+  /* Keep the button on screen on a narrow phone: clamp it horizontally, and when the
+     selection sits near the top — where it would be pushed off the viewport, and where
+     iOS draws its own Copy/Look Up callout — flip it under the selection instead. */
+  const half=b.offsetWidth?b.offsetWidth/2:52;
+  const x=Math.min(Math.max(r.left+r.width/2,half+8),window.innerWidth-half-8);
+  const below=r.top<64;
+  b.classList.toggle('below',below);
+  b.style.left=x+'px';b.style.top=(below?r.bottom:r.top)+'px';b.classList.add('show');}
 document.addEventListener('mouseup',()=>setTimeout(onSelect,10));
-document.addEventListener('touchend',()=>setTimeout(onSelect,10));
+/* iOS finalizes the selection (and its handles) a beat after touchend. */
+document.addEventListener('touchend',()=>setTimeout(onSelect,80));
 document.addEventListener('scroll',hideLookBtn,true);
 document.addEventListener('click',e=>{const w=e.target.closest&&e.target.closest('.w');if(w)doLookup(w.textContent.trim().replace(/[.,!?;:"'()]/g,''));});
 

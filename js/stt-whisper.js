@@ -65,9 +65,12 @@ export function createWhisperRecognizer({onInterim,onFinal,onEnd,onError}={}){
       if(onError)onError('마이크 권한이 필요해요. 브라우저 설정에서 허용해 주세요.');
       return;
     }
-    if(stopped)return; // stop() was called while permission was pending
+    if(stopped){stream.getTracks().forEach(t=>t.stop());return;} // stop() was called while permission was pending
     const AC=window.AudioContext||window.webkitAudioContext;
     audioCtx=new AC();
+    /* iOS hands back a suspended context even when it was created from a tap, and a
+       suspended context never fires onaudioprocess — the recording would be silent. */
+    if(audioCtx.state==='suspended'){try{await audioCtx.resume();}catch(e){/* keep going */}}
     source=audioCtx.createMediaStreamSource(stream);
     proc=audioCtx.createScriptProcessor(4096,1,1);
     chunks=[];silenceStart=null;startTime=Date.now();
