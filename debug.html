@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cadence 진단</title>
+<style>
+  body{margin:0;padding:16px;background:#F1F5EA;color:#1F2B1C;font:14px/1.5 system-ui,sans-serif}
+  h1{font-size:18px;margin:0 0 4px}
+  p.sub{color:#6C7A64;font-size:13px;margin:0 0 14px}
+  .row{background:#fff;border:1px solid #E0EAD9;border-radius:12px;padding:10px 12px;margin-bottom:7px;
+       word-break:break-all;overflow-wrap:anywhere}
+  .k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#6C7A64;font-weight:700}
+  .v{font-size:14px;margin-top:3px;font-weight:600}
+  .ok{color:#1F8A5F}.bad{color:#D9662F}
+  button{width:100%;padding:14px;border:none;border-radius:999px;background:#2F8F57;color:#fff;
+         font-size:15px;font-weight:700;margin-top:12px;font-family:inherit}
+  textarea{width:100%;height:150px;margin-top:10px;font-size:11px;border-radius:10px;
+           border:1px solid #E0EAD9;padding:8px;font-family:ui-monospace,monospace}
+</style>
+</head>
+<body>
+<h1>Cadence 진단</h1>
+<p class="sub">이 화면을 캡처해서 보내주세요.</p>
+<div id="out"></div>
+<button id="copy">진단 결과 복사하기</button>
+<textarea id="raw" readonly></textarea>
+
+<script>
+/* 의도적으로 구형 문법만 사용 — 앱 본체(ES 모듈)가 안 뜨는 브라우저에서도 이 페이지는 떠야 함 */
+var ua = navigator.userAgent || '';
+var lines = [];
+
+function add(k, v, good) {
+  lines.push(k + ': ' + v);
+  var cls = good === true ? 'ok' : (good === false ? 'bad' : '');
+  document.getElementById('out').innerHTML +=
+    '<div class="row"><div class="k">' + k + '</div><div class="v ' + cls + '">' + String(v) + '</div></div>';
+}
+
+/* install.js와 똑같은 판정식 */
+var IOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+var ANDROID = /Android/i.test(ua);
+var IN_APP = /KAKAOTALK|NAVER\(inapp|DaumApps|Instagram|FB_IAB|FBAN|FBAV|Line\/|band\/|everytimeApp|zumapp|whale/i.test(ua);
+var MOBILE = IOS || ANDROID || /Mobile/i.test(ua);
+var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+
+add('브라우저 UA', ua);
+add('인앱 브라우저로 판정?', IN_APP ? 'YES (안내 카드 떠야 함)' : 'NO', IN_APP);
+add('iOS / Android / Mobile', IOS + ' / ' + ANDROID + ' / ' + MOBILE, MOBILE);
+add('이미 설치된 상태(standalone)?', standalone ? 'YES → 카드 숨김이 정상' : 'NO', !standalone);
+
+var ls = 'unknown';
+try { localStorage.setItem('__t', '1'); localStorage.removeItem('__t'); ls = 'OK'; }
+catch (e) { ls = 'BLOCKED (' + e.name + ')'; }
+add('localStorage', ls, ls === 'OK');
+
+try {
+  var d = localStorage.getItem('settings:installCardDismissed');
+  add('카드를 닫은 적 있음?', d === 'true' ? 'YES → 이래서 안 보임' : 'NO', d !== 'true');
+} catch (e) { add('카드를 닫은 적 있음?', '확인 불가'); }
+
+add('ServiceWorker 지원', ('serviceWorker' in navigator) ? 'YES' : 'NO', ('serviceWorker' in navigator));
+add('마이크 API(getUserMedia)', (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) ? 'YES' : 'NO — 음성인식 불가',
+    !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+add('음성인식(SpeechRecognition)', (window.SpeechRecognition || window.webkitSpeechRecognition) ? 'YES' : 'NO (Whisper로 대체)');
+add('화면 너비', window.innerWidth + 'px');
+
+/* ES 모듈이 이 브라우저에서 되는지 */
+var modOK = ('noModule' in document.createElement('script'));
+add('ES 모듈 지원', modOK ? 'YES' : 'NO → 앱 자체가 안 뜸', modOK);
+
+/* 지금 서버에서 내려오는 파일이 최신본인지 (캐시 우회) */
+function check(path, needle, label) {
+  var url = path + '?nocache=' + Date.now();
+  var opt = { cache: 'no-store' };
+  fetch(url, opt).then(function (r) {
+    return r.text().then(function (t) {
+      var has = t.indexOf(needle) !== -1;
+      add(label, has ? 'OK — 최신본' : 'OLD — 옛날 파일이 내려옴', has);
+    });
+  }).catch(function (e) {
+    add(label, '가져오기 실패: ' + e.message, false);
+  });
+}
+check('js/install.js', 'KAKAOTALK', 'install.js (설치 안내 모듈)');
+check('js/ui/start.js', 'installCardHTML', 'start.js (홈 화면)');
+check('index.html', 'manifest.webmanifest', 'index.html');
+
+if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+  navigator.serviceWorker.getRegistrations().then(function (rs) {
+    add('등록된 ServiceWorker', rs.length + '개');
+  }).catch(function () { add('등록된 ServiceWorker', '확인 불가'); });
+}
+
+setTimeout(function () {
+  document.getElementById('raw').value = lines.join('\n');
+}, 2500);
+
+document.getElementById('copy').onclick = function () {
+  var t = document.getElementById('raw');
+  t.focus(); t.select();
+  try {
+    navigator.clipboard.writeText(t.value);
+    this.textContent = '복사됐어요! 붙여넣기 해주세요';
+  } catch (e) {
+    try { document.execCommand('copy'); this.textContent = '복사됐어요!'; }
+    catch (e2) { this.textContent = '아래 칸을 길게 눌러 복사해주세요'; }
+  }
+};
+</script>
+</body>
+</html>
