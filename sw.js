@@ -13,7 +13,7 @@
      the Whisper model) are never touched — they must not be cached or intercepted.
 
    Bump VERSION on any release that changes the shell; activate() drops older caches. */
-const VERSION = 'cadence-v2';
+const VERSION = 'cadence-v3';
 const SHELL = [
   './',
   './index.html',

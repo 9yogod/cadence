@@ -47,11 +47,30 @@
 <script>
 /* Register the service worker so Cadence can be installed to the phone's home screen
    and opened offline. Guarded: file:// (run.bat / double-clicking index.html) has no
-   SW support, and a failure here must never keep the app itself from loading. */
+   SW support, and a failure here must never keep the app itself from loading.
+
+   updateViaCache:'none' matters more than it looks. Without it the browser may serve
+   sw.js itself out of the HTTP cache (GitHub Pages sends max-age=600), so a worker can
+   keep control and keep handing the app whatever it cached — a deploy then looks like
+   it simply did nothing. With it, sw.js is always revalidated against the network, and
+   the explicit update() below re-checks on every load. If a new worker does take over
+   a page an old one was controlling, reload once so the page isn't running half-old
+   code. */
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then(function (reg) { reg.update(); })
+      .catch(function () {});
   });
+
+  if (navigator.serviceWorker.controller) {
+    var refreshing = false;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (refreshing) return;
+      refreshing = true;
+      location.reload();
+    });
+  }
 }
 </script>
 </body>

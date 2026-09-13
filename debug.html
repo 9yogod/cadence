@@ -24,6 +24,7 @@
 <p class="sub">이 화면을 캡처해서 보내주세요.</p>
 <div id="out"></div>
 <button id="copy">진단 결과 복사하기</button>
+<button id="reset" style="background:#D9662F">캐시 완전 삭제하고 다시 열기</button>
 <textarea id="raw" readonly></textarea>
 
 <script>
@@ -83,9 +84,33 @@ function check(path, needle, label) {
     add(label, '가져오기 실패: ' + e.message, false);
   });
 }
-check('js/install.js', 'KAKAOTALK', 'install.js (설치 안내 모듈)');
-check('js/ui/start.js', 'installCardHTML', 'start.js (홈 화면)');
-check('index.html', 'manifest.webmanifest', 'index.html');
+check('js/install.js', 'KAKAOTALK', '서버의 install.js');
+check('js/ui/start.js', 'installCardHTML', '서버의 start.js');
+check('index.html', 'manifest.webmanifest', '서버의 index.html');
+
+/* 결정적 검사: 앱이 실제로 받는 경로(쿼리 없음 = 서비스워커 통과) */
+function checkSW(path, needle, label) {
+  fetch(path).then(function (r) {
+    return r.text().then(function (t) {
+      var has = t.indexOf(needle) !== -1;
+      add(label, has ? 'OK — 최신본' : '옛날 파일! ← 서비스워커가 캐시를 주고 있음', has);
+    });
+  }).catch(function (e) { add(label, '실패: ' + e.message, false); });
+}
+checkSW('js/ui/start.js', 'installCardHTML', '앱이 받는 start.js');
+checkSW('js/install.js', 'KAKAOTALK', '앱이 받는 install.js');
+
+/* 실제 코드 실행 테스트 */
+if (modOK) {
+  import('./js/install.js?probe=' + Date.now()).then(function (m) {
+    var html = m.installCardHTML();
+    add('installCardHTML() 실행 결과',
+        html ? ('카드 HTML 생성됨 (' + html.length + '자)') : '빈 문자열 — 카드 숨김 조건에 걸림',
+        !!html);
+  }).catch(function (e) {
+    add('installCardHTML() 실행 결과', '모듈 오류: ' + e.message, false);
+  });
+}
 
 if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
   navigator.serviceWorker.getRegistrations().then(function (rs) {
@@ -96,6 +121,24 @@ if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
 setTimeout(function () {
   document.getElementById('raw').value = lines.join('\n');
 }, 2500);
+
+document.getElementById('reset').onclick = function () {
+  this.textContent = '지우는 중…';
+  var go = function () { location.replace('index.html?fresh=' + Date.now()); };
+  var tasks = [];
+  if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+    tasks.push(navigator.serviceWorker.getRegistrations().then(function (rs) {
+      return Promise.all(rs.map(function (r) { return r.unregister(); }));
+    }));
+  }
+  if (window.caches && caches.keys) {
+    tasks.push(caches.keys().then(function (ks) {
+      return Promise.all(ks.map(function (k) { return caches.delete(k); }));
+    }));
+  }
+  Promise.all(tasks).then(go).catch(go);
+  setTimeout(go, 3000); // 뭐가 걸리든 3초 뒤엔 무조건 이동
+};
 
 document.getElementById('copy').onclick = function () {
   var t = document.getElementById('raw');
