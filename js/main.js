@@ -4,6 +4,7 @@ import './lookup.js'; // registers global tap/drag word-lookup listeners
 import {updateNoteCount, renderNotes} from './notes.js';
 import {renderHistory} from './history.js';
 import {renderStart} from './ui/start.js';
+import {loadInstallState} from './install.js';
 
 (async function init(){
   S.notes=await store.get("notes:expressions",[]);
@@ -16,6 +17,7 @@ import {renderStart} from './ui/start.js';
   S.level=await store.get("settings:level","int");S.dictLevel=S.level;
   S.auto=await store.get("settings:auto",false);
   S.skill=await store.get("settings:skill",50);
+  await loadInstallState();
   updateNoteCount();renderStart();
 })();
 

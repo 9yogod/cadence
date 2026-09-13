@@ -6,10 +6,12 @@ import {startSession} from './session.js';
 import {startDictation} from '../dictation.js';
 import {hasKey,openKeySheet} from '../gemini.js';
 import {startLevelTest} from '../leveltest.js';
+import {installCardHTML,wireInstallCard,openInstallSheet,isStandalone} from '../install.js';
 
 const FLAME=`<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-2 .5 2-1 3-2 3-1.5 0-2-1.3-1.3-2.6C14.5 5.8 13 4 12 2z"/><path d="M8 13a4 4 0 1 0 8 0c0-1.5-1-2.5-1-2.5.3 1.6-.7 2.8-2 2.8s-2-1-1.7-2.4C10.6 12 8 12 8 13z"/></svg>`;
 const ICON_DICT=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3v4zM3 19a2 2 0 0 0 2 2h1v-6H3v4z"/></svg>`;
 const ICON_TARGET=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.8" fill="currentColor"/></svg>`;
+const ICON_PHONE=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18.5h2"/></svg>`;
 const ICON_KEY=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M17 6l2 2M14 9l2 2"/></svg>`;
 
 export function renderStart(){
@@ -25,6 +27,7 @@ export function renderStart(){
   else badge=`<div class="streakbadge" style="color:var(--muted);background:var(--surface-2)">오늘이 첫 세션이에요</div>`;
 
   app.innerHTML=`
+    ${installCardHTML()}
     <div class="card">
       ${badge}
       <h2>오늘도<br>말해볼까요?</h2>
@@ -51,11 +54,14 @@ export function renderStart(){
         <button class="util" id="dictBtn"><div class="uicon">${ICON_DICT}</div><span class="ulabel">받아쓰기</span></button>
         <button class="util" id="levelTestBtn"><div class="uicon">${ICON_TARGET}</div><span class="ulabel">레벨 확인</span></button>
         <button class="util" id="keyBtn"><div class="uicon">${ICON_KEY}${hasKey()?'<span class="dot"></span>':''}</div><span class="ulabel">Gemini 키</span></button>
+        ${isStandalone()?'':`<button class="util" id="installBtn"><div class="uicon">${ICON_PHONE}</div><span class="ulabel">앱 설치</span></button>`}
       </div>
     </div>
 
     <p class="lead" style="font-size:11px;text-align:center;margin:0">예문 일부는 <a class="link" href="https://tatoeba.org" target="_blank" rel="noopener">Tatoeba.org</a>에서 제공됩니다 (CC BY 2.0 FR)</p>`;
 
+  wireInstallCard();
+  const ib=document.getElementById('installBtn');if(ib)ib.onclick=openInstallSheet;
   document.getElementById('dictBtn').onclick=startDictation;
   document.getElementById('keyBtn').onclick=openKeySheet;
   app.querySelectorAll('#modeSel .choice').forEach(b=>b.onclick=()=>{

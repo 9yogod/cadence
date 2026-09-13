@@ -329,3 +329,14 @@ button,.choice,.util,.pill,.switch,.tabs button{
 /* Word-lookup button flipped below the selection (see lookup.js: near the top of the
    viewport, and clear of iOS's own selection callout). */
 .lookbtn.below{transform:translate(-50%,28%)}
+
+/* Install / in-app-browser card on the home screen (see install.js). */
+.installcard{position:relative;background:var(--accent-soft);border:1px solid #BFE0CC;border-radius:var(--r);
+  padding:16px 17px;margin-bottom:14px}
+.installcard.warn{background:#FFF7E8;border-color:#EAD9AE}
+.installcard .t{font-family:"Quicksand",sans-serif;font-weight:700;font-size:16px;letter-spacing:-.01em}
+.installcard .d{font-size:13.5px;color:var(--muted);margin-top:4px;line-height:1.5}
+.installcard .btn.small{width:100%}
+.installcard .x{position:absolute;top:7px;right:7px;width:32px;height:32px;border-radius:50%;
+  display:grid;place-items:center;color:var(--muted);font-size:13px}
+.installcard .x:hover{background:rgba(0,0,0,.05)}

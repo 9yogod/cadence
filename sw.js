@@ -3,14 +3,17 @@
    Strategy, deliberately simple because this is a static site with no API of its own:
    - The shell (index.html, CSS, manifest, icons) is precached on install, so a cold
      launch from the home screen works with no network at all.
-   - Every other same-origin GET (the ES modules under js/, including the data files)
-     is stale-while-revalidate: served instantly from cache, refreshed in the
-     background, so a deploy lands on the next launch.
+   - Code (the ES modules under js/, the CSS) is network-first with a cache fallback:
+     online you always run the version that is actually deployed, offline you run the
+     last one you loaded. Stale-while-revalidate was tempting here, but it means every
+     deploy is invisible until the *second* launch, which is a bad trade for a site
+     that gets updated by hand.
+   - Icons and the manifest are cache-first; they effectively never change.
    - Cross-origin requests (Google Fonts, the Gemini API, the transformers.js CDN and
      the Whisper model) are never touched — they must not be cached or intercepted.
 
    Bump VERSION on any release that changes the shell; activate() drops older caches. */
-const VERSION = 'cadence-v1';
+const VERSION = 'cadence-v2';
 const SHELL = [
   './',
   './index.html',
@@ -60,19 +63,28 @@ self.addEventListener('fetch', e => {
     return;
   }
 
-  // Everything else: stale-while-revalidate.
+  // Icons/manifest: cache-first, they don't change between deploys.
+  if (/\/icons\/|\.webmanifest$/.test(url.pathname)) {
+    e.respondWith(
+      caches.match(req).then(cached => cached || fetch(req).then(res => {
+        if (res && res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
+        return res;
+      }))
+    );
+    return;
+  }
+
+  // Code (js/, css/): network-first so a deploy takes effect on the very next load,
+  // falling back to cache when offline.
   e.respondWith(
-    caches.match(req).then(cached => {
-      const network = fetch(req)
-        .then(res => {
-          if (res && res.ok && res.type === 'basic') {
-            const copy = res.clone();
-            caches.open(VERSION).then(c => c.put(req, copy));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(req)
+      .then(res => {
+        if (res && res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(VERSION).then(c => c.put(req, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(req).then(cached => cached || Response.error()))
   );
 });
