@@ -1,5 +1,5 @@
 /* Persistent storage + the single shared app-state object S. */
-import {clamp,levelLabel} from './utils.js';
+import {clamp,levelLabel,daysBetween} from './utils.js';
 import {toast} from './toast.js';
 
 /* ---- storage: window.storage (claude.ai) → localStorage (deployed) → memory ---- */
@@ -38,4 +38,25 @@ export function effLevel(){if(!S.auto)return S.level;return S.skill<40?'beg':S.s
 export async function bumpSkill(delta){
   const prev=effLevel();S.skill=clamp((S.skill||50)+delta,0,100);await store.set("settings:skill",S.skill);
   const now=effLevel();if(S.auto&&now!==prev)setTimeout(()=>toast("🤖 실력에 맞춰 난이도를 "+levelLabel(now)+"(으)로 조정했어요"),400);
+}
+
+/* Records that the user practiced today and keeps the streak honest.
+
+   The old inline version asked only "was the last practice exactly yesterday?", so a
+   second completion on the same day answered no and reset the streak to 1. That was
+   already wrong; with a 5-minute review sitting alongside the full session it would
+   fire almost every day, punishing people for practicing twice.
+
+   countSession is for the 33-minute session only — 누적 세션 means full sessions, and
+   session.js also rotates shadowing content by that counter. */
+export async function markPracticeDay({countSession=false}={}){
+  const today=new Date().toISOString().slice(0,10);
+  const last=S.stats.lastDate;
+  let streak;
+  if(last===today)streak=S.stats.streak||1;                       // already counted today
+  else if(last&&daysBetween(last,today)===1)streak=(S.stats.streak||0)+1;
+  else streak=1;
+  S.stats={sessions:(S.stats.sessions||0)+(countSession?1:0),lastDate:today,streak};
+  await store.set("stats",S.stats);
+  return S.stats;
 }

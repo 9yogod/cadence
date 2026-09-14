@@ -1,6 +1,6 @@
 /* The 4-phase session shell: header timer/waveform/progress steps, phase switching, and
    session completion. Dispatches into review.js / shadow.js / talk.js / wrapup.js per phase. */
-import {S,PHASES,store,bumpSkill,effLevel} from '../state.js';
+import {S,PHASES,store,bumpSkill,effLevel,markPracticeDay} from '../state.js';
 import {fmt,pick,daysBetween} from '../utils.js';
 import {SHADOW} from '../data/shadow.js';
 import {SCEN} from '../data/scenarios.js';
@@ -77,9 +77,7 @@ function paintWave(){const w=document.getElementById('wave');if(!w)return;
 export async function finishSession(){
   clearInterval(S.tick);cancelSpeech();
   const today=new Date().toISOString().slice(0,10);
-  const cont=S.stats.lastDate&&daysBetween(S.stats.lastDate,today)===1;
-  S.stats={sessions:(S.stats.sessions||0)+1,lastDate:today,streak:cont?(S.stats.streak||1)+1:1};
-  await store.set("stats",S.stats);
+  await markPracticeDay({countSession:true});
   const rec={date:today,mode:S.mode,topic:S.scen?S.scen.title:'',mistakes:S.run.mistakes,lookups:S.run.lookups,expr:S.run.expr,t:Date.now()};
   S.sessionRecs.push(rec);if(S.sessionRecs.length>100)S.sessionRecs=S.sessionRecs.slice(-100);
   await store.set("log:sessions",S.sessionRecs);
