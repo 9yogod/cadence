@@ -14,6 +14,7 @@
 import {store} from './state.js';
 import {openSheet,closeSheet} from './lookup.js';
 import {toast} from './toast.js';
+import {ttsSupported} from './speech.js';
 
 const ua=navigator.userAgent||'';
 
@@ -74,7 +75,8 @@ export function openInstallSheet(){
     openSheet(`
       <div class="term">📲 브라우저에서 열어주세요</div>
       <p class="mean">지금 <b>${who} 안의 브라우저</b>로 보고 계세요. 여기서는 홈 화면 추가가 안 되고,
-        <b>마이크(음성인식)도 막혀 있는 경우가 많아요.</b> Safari나 Chrome으로 열면 다 정상 동작해요.</p>
+        ${ttsSupported()?'<b>마이크(음성인식)도 막혀 있는 경우가 많아요.</b>':'<b>영어 듣기(음성 재생)가 아예 안 되고, 마이크도 막혀 있어요.</b>'}
+        Safari나 Chrome으로 열면 다 정상 동작해요.</p>
       ${IOS&&!KAKAO?`<p class="mean" style="color:var(--muted);font-size:14px">
         화면 <b>오른쪽 아래 ⋯ (또는 나가기) 버튼 → "Safari로 열기"</b>를 눌러주세요.</p>`:''}
       <input id="copyUrl" readonly value="${location.href}"
@@ -143,8 +145,8 @@ export function installCardHTML(){
   if(IN_APP)return `
     <div class="installcard warn" id="installCard">
       <button class="x" id="installX" aria-label="닫기">✕</button>
-      <div class="t">브라우저에서 열면 더 잘 돼요</div>
-      <div class="d">지금은 앱 안의 브라우저예요. 마이크가 막혀 있을 수 있고 홈 화면 추가도 안 돼요.</div>
+      <div class="t">브라우저에서 열어야 제대로 돼요</div>
+      <div class="d">${ttsSupported()?'지금은 앱 안의 브라우저라 마이크가 막혀 있을 수 있어요.':'지금은 앱 안의 브라우저라 <b>듣기(음성 재생)가 안 되고</b> 마이크도 막혀 있어요.'} 홈 화면 추가도 안 되고요.</div>
       <button class="btn small" id="installGo" style="margin-top:11px">Safari · Chrome으로 열기</button>
     </div>`;
   return `

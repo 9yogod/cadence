@@ -8,6 +8,7 @@ import {renderReview} from './review.js';
 import {renderShadow} from './shadow.js';
 import {renderTalk} from './talk.js';
 import {renderReviewPhase} from './wrapup.js';
+import {cancelSpeech} from '../speech.js';
 
 function pickShadow(){const lvl=effLevel();let f=SHADOW.filter(x=>x.mode===S.mode&&x.level===lvl);if(!f.length)f=SHADOW.filter(x=>x.mode===S.mode);return f[(S.stats.sessions||0)%f.length];}
 
@@ -74,7 +75,7 @@ function paintWave(){const w=document.getElementById('wave');if(!w)return;
   w.classList.toggle('live',S.running);}
 
 export async function finishSession(){
-  clearInterval(S.tick);speechSynthesis.cancel();
+  clearInterval(S.tick);cancelSpeech();
   const today=new Date().toISOString().slice(0,10);
   const cont=S.stats.lastDate&&daysBetween(S.stats.lastDate,today)===1;
   S.stats={sessions:(S.stats.sessions||0)+1,lastDate:today,streak:cont?(S.stats.streak||1)+1:1};

@@ -2,12 +2,12 @@
    learner's scripted-scenario answers against the model answers. */
 import {S} from '../state.js';
 import {esc,wordWrap} from '../utils.js';
-import {speak} from '../speech.js';
+import {speak,cancelSpeech} from '../speech.js';
 import {hasKey,geminiCall} from '../gemini.js';
 import {addNotes} from '../notes.js';
 
 export function renderReviewPhase(body){
-  speechSynthesis.cancel();
+  cancelSpeech();
   if(S.run.aiUsed&&hasKey())return renderAIReview(body);
   return renderSelfReview(body);
 }

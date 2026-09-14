@@ -1,7 +1,7 @@
 /* The saved-expression deck: adding notes (deduped) and the Notes screen. */
 import {S,store} from './state.js';
 import {wordWrap,esc} from './utils.js';
-import {speak} from './speech.js';
+import {speak,cancelSpeech} from './speech.js';
 
 export function updateNoteCount(){document.getElementById('noteCount').textContent=S.notes.length;}
 
@@ -11,7 +11,7 @@ export async function addNotes(list){
   if(S.run)S.run.expr+=added;await store.set("notes:expressions",S.notes);updateNoteCount();}
 
 export function renderNotes(){
-  speechSynthesis.cancel();clearInterval(S.tick);
+  cancelSpeech();clearInterval(S.tick);
   const app=document.getElementById('app');
   app.innerHTML=`<div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center">

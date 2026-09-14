@@ -7,6 +7,7 @@ import {startDictation} from '../dictation.js';
 import {hasKey,openKeySheet} from '../gemini.js';
 import {startLevelTest} from '../leveltest.js';
 import {installCardHTML,wireInstallCard,openInstallSheet,isStandalone} from '../install.js';
+import {cancelSpeech} from '../speech.js';
 
 const FLAME=`<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-2 .5 2-1 3-2 3-1.5 0-2-1.3-1.3-2.6C14.5 5.8 13 4 12 2z"/><path d="M8 13a4 4 0 1 0 8 0c0-1.5-1-2.5-1-2.5.3 1.6-.7 2.8-2 2.8s-2-1-1.7-2.4C10.6 12 8 12 8 13z"/></svg>`;
 const ICON_DICT=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3v4zM3 19a2 2 0 0 0 2 2h1v-6H3v4z"/></svg>`;
@@ -15,7 +16,7 @@ const ICON_PHONE=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" st
 const ICON_KEY=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M17 6l2 2M14 9l2 2"/></svg>`;
 
 export function renderStart(){
-  speechSynthesis.cancel();clearInterval(S.tick);
+  cancelSpeech();clearInterval(S.tick);
   const app=document.getElementById('app');
   const today=new Date().toISOString().slice(0,10);
   const gap=S.stats.lastDate?daysBetween(S.stats.lastDate,today):null;

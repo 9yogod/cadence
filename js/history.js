@@ -1,7 +1,7 @@
 /* Logging (mistakes/lookups) + the History screen (three tabs: mistakes / lookups / sessions). */
 import {S,store} from './state.js';
 import {esc} from './utils.js';
-import {speak} from './speech.js';
+import {speak,cancelSpeech} from './speech.js';
 import {toast} from './toast.js';
 import {scoreChartHTML,wireScoreChart} from './ui/progress-chart.js';
 
@@ -24,7 +24,7 @@ export async function logScore(type,acc){
 function emptyState(msg){return `<div class="empty">${msg}</div>`;}
 
 export function renderHistory(tab){
-  speechSynthesis.cancel();clearInterval(S.tick);tab=tab||'mistakes';
+  cancelSpeech();clearInterval(S.tick);tab=tab||'mistakes';
   const app=document.getElementById('app');
   const modeK=m=>m==='work'?'업무':'일상';let inner='';
   if(tab==='sessions'){const recs=S.sessionRecs.slice().reverse();

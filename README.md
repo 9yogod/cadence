@@ -149,3 +149,23 @@ PWA로 만들어도 페이지에는 아무 표시가 안 나서, 홈 화면 상�
 처음엔 stale-while-revalidate였는데, 그러면 배포한 내용이 **다음 실행 때**에나 보여요.
 코드(js/css)는 network-first + 오프라인 시 캐시 폴백으로 바꿔서, 온라인이면 항상 최신 버전이
 바로 반영되게 했어요. 아이콘·manifest만 cache-first로 남겼습니다.
+
+## 🐞 모바일에서 앱이 안 뜨던 버그 (해결)
+
+**증상**: 안드로이드 폰, 특히 카카오톡·네이버 인앱 브라우저로 열면 헤더만 나오고
+본문이 통째로 비어 있었음.
+
+**원인**: `renderStart()`의 첫 줄이 `speechSynthesis.cancel()`이었는데,
+**안드로이드 WebView에는 `speechSynthesis`가 아예 없다.** (인앱 브라우저는 전부 WebView —
+UA에 `wv`가 박혀 있음.) 그래서 홈 화면을 그리기도 전에
+`ReferenceError: speechSynthesis is not defined`로 죽고 `#app`이 빈 채로 남았다.
+화면 전환마다 재생을 멈추려고 부르는 호출이라 총 10군데가 같은 지뢰였다
+(받아쓰기·이력·노트·세션·쉐도잉·리뷰).
+
+**해결**: `speech.js`에 `cancelSpeech()` / `ttsSupported()`를 만들고 10곳을 전부 교체.
+`typeof speechSynthesis`로 확인하므로 전역이 없든 undefined든 안전하다.
+WebView를 재현해(speechSynthesis 삭제) 홈·받아쓰기·레벨테스트·노트·이력 및
+세션 4단계 전부 정상 렌더링되는 것을 확인했다.
+
+> 참고: WebView에는 음성 재생이 없으므로 **인앱 브라우저에서는 듣기 기능을 쓸 수 없다.**
+> 앱이 이걸 감지해서 상단 안내 카드에 명시하고 외부 브라우저로 열도록 유도한다.

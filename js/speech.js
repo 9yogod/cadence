@@ -37,9 +37,24 @@ function utter(text,rate){
   return u;
 }
 
+/* Stopping playback is the one speech call every screen makes on entry, and Android
+   WebView — which is what KakaoTalk's and Naver's in-app browsers are (UA contains
+   "wv") — ships no speech synthesis at all. There a bare `speechSynthesis.cancel()`
+   throws ReferenceError, and since renderStart() opens with one, the whole app died
+   with a blank screen before drawing anything. typeof also covers the case where the
+   global exists but is undefined. Every screen must route cancels through this. */
+export function cancelSpeech(){
+  try{ if(typeof speechSynthesis!=='undefined'&&speechSynthesis) speechSynthesis.cancel(); }
+  catch(e){/* engine absent or refusing; nothing to stop */}
+}
+
+export function ttsSupported(){
+  return typeof speechSynthesis!=='undefined'&&!!speechSynthesis;
+}
+
 export function speak(text,rate=.92){
-  if(!('speechSynthesis'in window))return toast("이 브라우저는 음성 재생을 지원하지 않아요");
-  speechSynthesis.cancel();speechSynthesis.speak(utter(text,rate));
+  if(!ttsSupported())return toast("이 브라우저는 음성 재생을 지원하지 않아요");
+  cancelSpeech();speechSynthesis.speak(utter(text,rate));
 }
 
 /* Like speak(), but doesn't cancel what's already queued — calling this repeatedly
@@ -47,7 +62,7 @@ export function speak(text,rate=.92){
    order without cutting the previous one off, instead of waiting for the whole
    reply to finish generating before saying anything. */
 export function speakQueued(text,rate=.92){
-  if(!('speechSynthesis'in window)||!text)return;
+  if(!ttsSupported()||!text)return;
   speechSynthesis.speak(utter(text,rate));
 }
 

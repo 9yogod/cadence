@@ -1,14 +1,14 @@
 /* Standalone dictation practice: listen, type what you hear, get graded locally (no AI needed). */
 import {S,bumpSkill,effLevel} from './state.js';
 import {esc,levelLabel,canonRef,canonAns,lcsMatch,casualTips} from './utils.js';
-import {speak} from './speech.js';
+import {speak,cancelSpeech} from './speech.js';
 import {DICT} from './data/dict.js';
 import {TATOEBA} from './data/tatoeba.js';
 
 function pickDict(level){let f=[...DICT,...TATOEBA].filter(d=>d.level===level);if(!f.length)f=DICT;return f[Math.floor(Math.random()*f.length)];}
 
 export function startDictation(){
-  clearInterval(S.tick);speechSynthesis.cancel();
+  clearInterval(S.tick);cancelSpeech();
   const app=document.getElementById('app');
   const dl=S.auto?effLevel():S.dictLevel;
   const item=pickDict(dl);
@@ -28,13 +28,13 @@ export function startDictation(){
   app.querySelectorAll('#dlvl button').forEach(b=>b.onclick=()=>{S.dictLevel=b.dataset.dl;startDictation();});
   document.getElementById('dplay').onclick=()=>speak(item.en,.9);
   document.getElementById('dslow').onclick=()=>speak(item.en,.6);
-  document.getElementById('dstop').onclick=()=>speechSynthesis.cancel();
+  document.getElementById('dstop').onclick=()=>cancelSpeech();
   setTimeout(()=>speak(item.en,.9),350);
   document.getElementById('dcheck').onclick=async()=>{
     const {toast}=await import('./toast.js');
     const {logMistake,logScore}=await import('./history.js');
     const attempt=document.getElementById('dinput').value.trim();if(!attempt){toast("먼저 들은 내용을 받아써 주세요");return;}
-    speechSynthesis.cancel();
+    cancelSpeech();
     const refW=canonRef(item.en).split(' '),youW=canonAns(attempt).split(' ').filter(Boolean);
     const matched=lcsMatch(refW,youW);const hit=matched.filter(Boolean).length;const acc=Math.round(hit/refW.length*100);
     const missed=item.en.split(/\s+/).filter((_,k)=>!matched[k]);

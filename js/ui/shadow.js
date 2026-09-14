@@ -2,7 +2,7 @@
    read-aloud pronunciation check that grades against speech recognition. */
 import {S,effLevel} from '../state.js';
 import {levelLabel,wordWrap,esc,lcsMatch} from '../utils.js';
-import {speak,wireMicButton} from '../speech.js';
+import {speak,wireMicButton,cancelSpeech} from '../speech.js';
 import {hasKey,geminiCall} from '../gemini.js';
 import {LONGSHADOW} from '../data/longshadow.js';
 
@@ -30,7 +30,7 @@ function renderShadowSentences(body,seg){
   bindSeg(body);
   document.getElementById('listen').onclick=()=>speak(full,.92);
   document.getElementById('listenSlow').onclick=()=>speak(full,.7);
-  document.getElementById('stopS').onclick=()=>speechSynthesis.cancel();
+  document.getElementById('stopS').onclick=()=>cancelSpeech();
   body.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>speak(sents[+b.dataset.say].en,.92));
   body.querySelectorAll('[data-slow]').forEach(b=>b.onclick=()=>speak(sents[+b.dataset.slow].en,.6));
   document.getElementById('saveGloss').onclick=async()=>{const {addNotes}=await import('../notes.js');const {toast}=await import('../toast.js');await addNotes(r.glossary);toast("표현을 노트에 저장했어요 📒");};
@@ -85,7 +85,7 @@ function paintPara(body,seg,p){
   bindSeg(body);
   document.getElementById('listen').onclick=()=>speak(para,.92);
   document.getElementById('listenSlow').onclick=()=>speak(para,.68);
-  document.getElementById('stopS').onclick=()=>speechSynthesis.cancel();
+  document.getElementById('stopS').onclick=()=>cancelSpeech();
   document.getElementById('saveGloss').onclick=async()=>{const {addNotes}=await import('../notes.js');const {toast}=await import('../toast.js');await addNotes(gloss);toast("표현을 노트에 저장했어요 📒");};
   const rg=document.getElementById('regen');
   if(rg)rg.onclick=()=>{S.paraPassage=null;renderShadow(body);};
