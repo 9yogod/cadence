@@ -7,6 +7,7 @@ import {startDictation} from '../dictation.js';
 import {hasKey,openKeySheet} from '../gemini.js';
 import {startLevelTest} from '../leveltest.js';
 import {installCardHTML,wireInstallCard,openInstallSheet,isStandalone} from '../install.js';
+import {ensureAll,dueCount} from '../srs.js';
 import {cancelSpeech} from '../speech.js';
 
 const FLAME=`<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-2 .5 2-1 3-2 3-1.5 0-2-1.3-1.3-2.6C14.5 5.8 13 4 12 2z"/><path d="M8 13a4 4 0 1 0 8 0c0-1.5-1-2.5-1-2.5.3 1.6-.7 2.8-2 2.8s-2-1-1.7-2.4C10.6 12 8 12 8 13z"/></svg>`;
@@ -21,6 +22,10 @@ export function renderStart(){
   const today=new Date().toISOString().slice(0,10);
   const gap=S.stats.lastDate?daysBetween(S.stats.lastDate,today):null;
 
+  ensureAll(S.notes);
+  const nDue=dueCount(S.notes);
+  const dueBadge=nDue?`<div class="streakbadge duebadge">📒 오늘 복습할 표현 ${nDue}개</div>`:'';
+
   let badge='';
   if(gap===0)badge=`<div class="streakbadge">${FLAME} 오늘 세션 완료 · 누적 ${S.stats.sessions}회</div>`;
   else if(gap===1)badge=`<div class="streakbadge">${FLAME} 스트릭 ${S.stats.streak}일째 · 오늘 마치면 이어져요</div>`;
@@ -30,7 +35,7 @@ export function renderStart(){
   app.innerHTML=`
     ${installCardHTML()}
     <div class="card">
-      ${badge}
+      ${badge}${dueBadge}
       <h2>오늘도<br>말해볼까요?</h2>
       <p class="lead">복습 → 쉐도잉 → 대화 → 리뷰 · 약 33분이면 충분해요<br>핵심 기능은 토큰 없이 작동해요</p>
 

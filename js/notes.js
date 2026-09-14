@@ -2,12 +2,13 @@
 import {S,store} from './state.js';
 import {wordWrap,esc} from './utils.js';
 import {speak,cancelSpeech} from './speech.js';
+import {initCard,dueLabel} from './srs.js';
 
 export function updateNoteCount(){document.getElementById('noteCount').textContent=S.notes.length;}
 
 export async function addNotes(list){
   const now=Date.now();const existing=new Set(S.notes.map(n=>n.en.toLowerCase().trim()));let added=0;
-  (list||[]).forEach(e=>{if(e&&e.en&&!existing.has(e.en.toLowerCase().trim())){S.notes.push({en:e.en,ko:e.ko||'',t:now});existing.add(e.en.toLowerCase().trim());added++;}});
+  (list||[]).forEach(e=>{if(e&&e.en&&!existing.has(e.en.toLowerCase().trim())){S.notes.push(initCard({en:e.en,ko:e.ko||'',t:now},now));existing.add(e.en.toLowerCase().trim());added++;}});
   if(S.run)S.run.expr+=added;await store.set("notes:expressions",S.notes);updateNoteCount();}
 
 export function renderNotes(){
@@ -17,10 +18,10 @@ export function renderNotes(){
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div><div class="eyebrow">Expression deck</div><h2 style="font-size:22px">내 표현노트</h2></div>
       <button class="btn ghost small" id="back">← 홈</button></div>
-    <p class="lead">쉐도잉·리뷰·단어 찾기에서 모은 표현이에요. 세션마다 복습에 등장해요.</p>
+    <p class="lead">쉐도잉·리뷰·단어 찾기에서 모은 표현이에요. 복습에서 고른 난이도에 따라 다시 나올 날짜가 정해져요.</p>
     <div id="list">${S.notes.length?S.notes.slice().reverse().map((e,ri)=>{const i=S.notes.length-1-ri;
       return `<div class="exp"><div class="en lookup">${wordWrap(e.en)}</div><div class="ko">${esc(e.ko||'')}</div>
-        <div class="mini"><button data-say="${i}">🔊 듣기</button><button data-del="${i}" style="color:var(--live)">삭제</button></div></div>`;}).join(''):`<div class="empty">아직 저장된 표현이 없어요.<br>세션을 완료하면 여기에 쌓입니다.</div>`}</div>
+        <div class="mini"><button data-say="${i}">🔊 듣기</button><button data-del="${i}" style="color:var(--live)">삭제</button> <span class="rep">${dueLabel(e)}</span></div></div>`;}).join(''):`<div class="empty">아직 저장된 표현이 없어요.<br>세션을 완료하면 여기에 쌓입니다.</div>`}</div>
     ${S.notes.length?`<button class="btn ghost small" id="reset" style="width:100%;margin-top:10px;color:var(--live)">전체 초기화</button>`:''}</div>`;
   document.getElementById('back').onclick=async()=>{const {renderStart}=await import('./ui/start.js');renderStart();};
   app.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>speak(S.notes[+b.dataset.say].en));

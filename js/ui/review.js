@@ -5,6 +5,7 @@ import {shuffle,wordWrap,esc,splitSents} from '../utils.js';
 import {speak} from '../speech.js';
 import {hasKey,geminiCall} from '../gemini.js';
 import {addNotes} from '../notes.js';
+import {pickForReview,ensureAll,dueCount,grade,dueLabel} from '../srs.js';
 import {SHADOW} from '../data/shadow.js';
 import {LONGSHADOW} from '../data/longshadow.js';
 import {DICT} from '../data/dict.js';
@@ -49,8 +50,11 @@ function exLineHtml(e,i){
 
 export async function renderReview(body){
   const N=10;
-  let notes=shuffle(S.notes.slice());notes.sort((a,b)=>((a.seen||0)-(b.seen||0)));
-  let picked=notes.slice(0,N);const filled=picked.length<N;
+  const now=Date.now();
+  ensureAll(S.notes,now);
+  const nDue=dueCount(S.notes,now);
+  /* these are the live objects from S.notes, so grading below mutates the deck itself */
+  let picked=pickForReview(S.notes,N,now);const filled=picked.length<N;
   if(filled)picked=picked.concat(shuffle(warmupPool()).slice(0,N-picked.length));
   if(picked.length===0)picked=STARTER.map(s=>({...s,suggest:true}));
   const deck=shuffle(picked.slice());
@@ -58,21 +62,34 @@ export async function renderReview(body){
   const first=S.notes.length===0;
   body.innerHTML=`<div class="card">
     <div class="eyebrow">Warm-up${filled&&!first?' · 쉐도잉 표현 자동 보충':''}</div><h2 style="font-size:21px">소리 내어 다시 말해보기</h2>
-    <p class="lead">${first?'표현과 예문을 소리 내어 따라 말해보세요. 세션에서 ＋저장을 누르면 나만의 복습 덱이 쌓여요.':'표현을 예문 속에서 입으로 따라 말해보세요. 매번 섞어서, 오래 안 본 것 먼저 보여드려요.'}</p>
+    <p class="lead">${first?'표현과 예문을 소리 내어 따라 말해보세요. 세션에서 ＋저장을 누르면 나만의 복습 덱이 쌓여요.'
+      :(nDue?`오늘 복습할 표현 <b>${nDue}개</b> 중에서 보여드려요. 말해본 뒤 아래 버튼으로 기억나는 정도를 골라주세요 — 그만큼 뒤에 다시 나와요.`
+            :'오늘 복습 예정인 표현은 없어요. 곧 돌아올 것부터 미리 보여드릴게요.')}</p>
     <button class="btn ghost small" id="playAll" style="margin-bottom:14px">🔊 예문 전체 듣기</button>
     <div>${deck.map((e,i)=>`<div class="exp">
       <div class="en lookup">${wordWrap(e.en)}</div><div class="ko">${esc(e.ko||'')}</div>
       <div id="ex-${i}" class="read" style="font-size:15px;margin-top:8px;line-height:1.5">${exLineHtml(e,i)}</div>
-      <div class="mini"><button data-say="${i}">🔊 표현</button>${e.suggest?` · <span class="rep">쉐도잉 표현</span> · <button data-add="${i}">＋ 저장</button>`:''}</div></div>`).join('')}</div></div>`;
+      <div class="mini"><button data-say="${i}">🔊 표현</button>${e.suggest?` · <span class="rep">쉐도잉 표현</span> · <button data-add="${i}">＋ 저장</button>`:` · <span class="rep">${dueLabel(e,now)}</span>`}</div>
+      ${e.suggest?'':`<div class="grade" id="g-${i}">
+        <button class="gbtn again" data-g="again" data-gi="${i}">다시</button>
+        <button class="gbtn hard"  data-g="hard"  data-gi="${i}">애매</button>
+        <button class="gbtn good"  data-g="good"  data-gi="${i}">알아요</button>
+      </div>`}</div>`).join('')}</div></div>`;
   function wireEx(){body.querySelectorAll('[data-sayex]').forEach(b=>b.onclick=()=>{const e=deck[+b.dataset.sayex];if(e.ex)speak(e.ex,.9);});}
   body.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>speak(deck[+b.dataset.say].en));
   body.querySelectorAll('[data-add]').forEach(b=>b.onclick=async()=>{const e=deck[+b.dataset.add];await addNotes([{en:e.en,ko:e.ko}]);const {toast}=await import('../toast.js');toast('노트에 저장했어요 📒');});
   wireEx();
   document.getElementById('playAll').onclick=()=>speak(deck.map(e=>e.ex||e.en).join('. '),.92);
-  // spaced-repetition update
-  const now=Date.now();let changed=false;
-  S.notes.forEach(n=>{if(deck.some(d=>!d.suggest&&d.en===n.en)){n.seen=now;changed=true;}});
-  if(changed)await store.set("notes:expressions",S.notes);
+  /* Grading is what schedules the card; showing it is not. A card left ungraded stays
+     due, which is the correct behavior - it just means you didn't get to it. */
+  body.querySelectorAll('.gbtn').forEach(b=>b.onclick=async()=>{
+    const i=+b.dataset.gi, card=deck[i];
+    if(!card||card.suggest)return;
+    grade(card,b.dataset.g,Date.now());
+    await store.set("notes:expressions",S.notes);
+    const row=document.getElementById('g-'+i);
+    if(row)row.innerHTML=`<span class="graded">✓ ${dueLabel(card)} 다시 나와요</span>`;
+  });
   // AI-fill missing examples
   if(hasKey()){
     const missing=deck.map((e,i)=>({e,i})).filter(x=>!x.e.ex);

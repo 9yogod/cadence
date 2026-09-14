@@ -5,9 +5,11 @@ import {updateNoteCount, renderNotes} from './notes.js';
 import {renderHistory} from './history.js';
 import {renderStart} from './ui/start.js';
 import {loadInstallState} from './install.js';
+import {ensureAll} from './srs.js';
 
 (async function init(){
   S.notes=await store.get("notes:expressions",[]);
+  ensureAll(S.notes); // notes saved before scheduling existed become new-and-due
   S.stats=await store.get("stats",{sessions:0,lastDate:null,streak:0});
   S.mistakes=await store.get("log:mistakes",[]);
   S.lookups=await store.get("log:lookups",[]);

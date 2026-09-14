@@ -340,3 +340,14 @@ button,.choice,.util,.pill,.switch,.tabs button{
 .installcard .x{position:absolute;top:7px;right:7px;width:32px;height:32px;border-radius:50%;
   display:grid;place-items:center;color:var(--muted);font-size:13px}
 .installcard .x:hover{background:rgba(0,0,0,.05)}
+
+/* Spaced-repetition grading row (see srs.js) */
+.grade{display:flex;gap:7px;margin-top:11px}
+.gbtn{flex:1;padding:10px 6px;border-radius:12px;font-size:13px;font-weight:700;
+  border:1.5px solid var(--line);background:var(--surface);min-height:42px}
+.gbtn.again{color:var(--live);border-color:#F0D2C2}
+.gbtn.hard{color:#B8791E;border-color:#EAD9AE}
+.gbtn.good{color:var(--ok);border-color:#BFE0CC}
+.gbtn:active{transform:scale(.97)}
+.graded{display:inline-flex;align-items:center;min-height:42px;font-size:13px;font-weight:600;color:var(--ok)}
+.duebadge{margin-left:6px}
