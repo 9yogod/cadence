@@ -1,0 +1,47 @@
+/* The pronunciation-assessment instruction, kept free of DOM and app state so the exact
+   text the app sends can also be run by the verification harness in tools/pron-verify,
+   which also records what this prompt does and does not catch.
+   If the app and the test built their prompts separately, a passing test would say
+   nothing about what users actually get.
+
+   Two guards against confident feedback about errors nobody made. "heard" makes the
+   model commit to what it actually heard before it critiques, and is shown to the user
+   so they can check it listened. "audible" gives it a sanctioned way to call a take
+   unusable instead of inventing an assessment. Deliberately no list of "typical
+   Korean-speaker errors": naming them primes the model to report them whether or not
+   they occurred. */
+
+export const PRON_SYSTEM="You are an English pronunciation coach for a Korean learner. You receive an audio recording and the reference text the learner tried to read aloud. Base every judgment strictly on what is audible in the recording. Never report an error you cannot actually hear. If the recording is silent, unintelligible, or is not an attempt at the reference text, set audible to false and return an empty words list. Return ONLY JSON.";
+
+export function pronPrompt(ref){
+  return `Reference text the learner was reading aloud:
+"""${ref}"""
+
+Listen to the attached recording and return JSON with exactly these fields:
+{
+ "audible": true or false,
+ "heard": "verbatim transcript of what you actually heard, keeping misread, mispronounced or skipped words as they were spoken",
+ "score": integer 0-100 for pronunciation accuracy and intelligibility,
+ "fluency": "one Korean sentence about pace, pauses and rhythm",
+ "strengths": "one Korean sentence about what sounded good",
+ "focus": "one Korean sentence: the single most useful thing to practice next",
+ "words": [{"word":"the reference word","heard":"how it actually sounded","issue":"short Korean description of the sound problem","tip":"short Korean instruction for producing it correctly"}]
+}
+words: at most 6, only problems clearly audible in the recording, most damaging to intelligibility first, [] if none.
+score rubric: 90-100 near-native clarity; 75-89 clear with a noticeable accent; 60-74 understandable with clear errors; 40-59 errors interfere with understanding; below 40 hard to understand.`;
+}
+
+/* generateContent settings shared by the app and the harness. */
+export const PRON_GENERATION={temperature:.2,maxOutputTokens:2048,responseMimeType:"application/json"};
+
+/* The generateContent body for an audio assessment. Built here, not in gemini.js, so the
+   harness sends byte-for-byte the request the app sends. Part shape per the
+   generateContent reference: inline_data {mime_type, data (base64)}. */
+export function audioRequestBody(prompt,wavBase64,systemText){
+  const body={
+    contents:[{role:'user',parts:[{text:prompt},{inline_data:{mime_type:'audio/wav',data:wavBase64}}]}],
+    generationConfig:{...PRON_GENERATION}
+  };
+  if(systemText)body.systemInstruction={parts:[{text:systemText}]};
+  return body;
+}

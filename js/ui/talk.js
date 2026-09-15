@@ -152,5 +152,5 @@ function renderAIChat(body,seg,wire){
       S.chat.push({role:'assistant',content:reply||"Got it — tell me more!"});
       fetchCorrection(text);
     }catch(e){t.classList.remove('think');t.textContent="음… 다시 한 번 말해줄래요?";aiError(e);}}
-  async function aiError(e){const {toast}=await import('../toast.js');toast("Gemini 호출 오류 — 키/모델을 확인하세요",'err');}
+  async function aiError(e){const {toast}=await import('../toast.js');const {geminiErrorText}=await import('../gemini.js');toast(geminiErrorText(e),'err');}
 }

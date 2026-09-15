@@ -50,7 +50,7 @@ async function renderShadowParagraph(body,seg){
     if(hasKey()){
       body.innerHTML=`<div class="card">${seg}<div class="eyebrow">Shadowing · 문단</div><h2 style="font-size:20px">지문 준비 중…</h2><p class="lead"><span class="spin dark"></span> AI가 새 칼럼형 지문을 쓰고 있어요.</p></div>`;
       bindSeg(body);
-      try{p=await genParagraph();}catch(e){p=pickLong();const {toast}=await import('../toast.js');toast('AI 지문 생성 실패 — 내장 지문으로 대체','err');}
+      try{p=await genParagraph();}catch(e){p=pickLong();const {toast}=await import('../toast.js');const {geminiErrorText}=await import('../gemini.js');toast('내장 지문으로 대체했어요 — '+geminiErrorText(e),'err');}
     }else{p=pickLong();}
     S.paraPassage=p;
   }
@@ -130,7 +130,8 @@ function wireAIPron(btn,interim,result,ref){
           await assessPron(ref,take,result);
         }
       }catch(e){
-        result.innerHTML=`<div class="summary" style="margin-top:12px">평가를 불러오지 못했어요. 네트워크나 Gemini 키를 확인하고 다시 시도해 주세요.<br><span style="font-size:12px;color:var(--muted)">${esc(String(e.message||e).slice(0,120))}</span></div>`;
+        const {geminiErrorText}=await import('../gemini.js');
+        result.innerHTML=`<div class="summary" style="margin-top:12px">평가를 불러오지 못했어요. ${esc(geminiErrorText(e))}</div>`;
       }
       busy=false;idle();
       return;
@@ -156,30 +157,8 @@ function wireAIPron(btn,interim,result,ref){
 
 async function assessPron(ref,take,result){
   const {geminiAudioCall}=await import('../gemini.js');
-  /* Two guards against the failure this feature exists to fix: confident feedback
-     about errors nobody made. "heard" makes the model commit to what it actually heard
-     before it critiques, and is shown to the user so they can check it listened.
-     "audible" gives it a sanctioned way to call a take unusable instead of inventing an
-     assessment. Deliberately no list of "typical Korean-speaker errors": naming them
-     primes the model to report them whether or not they occurred. */
-  const sys="You are an English pronunciation coach for a Korean learner. You receive an audio recording and the reference text the learner tried to read aloud. Base every judgment strictly on what is audible in the recording. Never report an error you cannot actually hear. If the recording is silent, unintelligible, or is not an attempt at the reference text, set audible to false and return an empty words list. Return ONLY JSON.";
-  const prompt=`Reference text the learner was reading aloud:
-"""${ref}"""
-
-Listen to the attached recording and return JSON with exactly these fields:
-{
- "audible": true or false,
- "heard": "verbatim transcript of what you actually heard, keeping misread, mispronounced or skipped words as they were spoken",
- "score": integer 0-100 for pronunciation accuracy and intelligibility,
- "fluency": "one Korean sentence about pace, pauses and rhythm",
- "strengths": "one Korean sentence about what sounded good",
- "focus": "one Korean sentence: the single most useful thing to practice next",
- "words": [{"word":"the reference word","heard":"how it actually sounded","issue":"short Korean description of the sound problem","tip":"short Korean instruction for producing it correctly"}]
-}
-words: at most 6, only problems clearly audible in the recording, most damaging to intelligibility first, [] if none.
-score rubric: 90-100 near-native clarity; 75-89 clear with a noticeable accent; 60-74 understandable with clear errors; 40-59 errors interfere with understanding; below 40 hard to understand.`;
-
-  const r=await geminiAudioCall(prompt,take.wavBase64,sys);
+  const {PRON_SYSTEM,pronPrompt}=await import('../pron-prompt.js');
+  const r=await geminiAudioCall(pronPrompt(ref),take.wavBase64,PRON_SYSTEM);
   const {logMistake,logScore}=await import('../history.js');
 
   if(r.audible===false){
@@ -202,7 +181,7 @@ score rubric: 90-100 near-native clarity; 75-89 clear with a noticeable accent; 
         </div>`).join('')}`
         :`<div class="summary" style="background:#EEF7F1;margin-top:10px">뚜렷하게 어긋난 소리는 없었어요 👏</div>`}
       ${r.heard?`<details class="pronheard"><summary>AI가 들은 내용 확인하기</summary><div>${esc(r.heard)}</div></details>`:''}
-      <p class="lead" style="font-size:11.5px;margin:10px 0 0">AI가 압축된 녹음을 듣고 판단한 결과라 전문 발음 분석기만큼 정밀하진 않아요. "들은 내용"이 실제와 많이 다르면 점수는 참고만 하세요.</p>
+      <p class="lead" style="font-size:11.5px;margin:10px 0 0">참고: 억양·빠뜨린 단어·잘못 읽은 단어는 잘 잡지만, 문장 속에서 think를 <i>sink</i>처럼 <b>다른 그럴듯한 단어로 바꿔 발음한 건</b> AI가 문맥상 맞는 단어로 알아듣고 놓치는 경우가 많아요. 그런 소리는 🔊로 원어민 발음과 직접 비교해 보세요.</p>
     </div>`;
   result.querySelectorAll('[data-pw]').forEach(b=>b.onclick=()=>speak(words[+b.dataset.pw].word,.6));
   for(const w of words)await logMistake({you:w.heard?`(${w.heard})`:'(발음 불명확)',better:w.word,note:[w.issue,w.tip].filter(Boolean).join(' · '),source:'발음'});

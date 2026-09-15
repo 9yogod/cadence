@@ -32,7 +32,7 @@ async function renderAIReview(body){
       ${(r.expressions||[]).map(e=>`<div class="exp"><div class="en lookup">${wordWrap(e.en)}</div><div class="ko">${esc(e.ko)}</div></div>`).join('')}</div>`;
     const {toast}=await import('../toast.js');
     toast("표현 "+(r.expressions||[]).length+"개가 노트에 저장됐어요 📒");
-  }catch(e){body.innerHTML=`<div class="card"><div class="eyebrow">Review</div><h2 style="font-size:20px">피드백을 불러오지 못했어요</h2><p class="lead">Gemini 연결/키를 확인하고 다시 시도해 주세요.</p></div>`;}
+  }catch(e){const {geminiErrorText}=await import('../gemini.js');body.innerHTML=`<div class="card"><div class="eyebrow">Review</div><h2 style="font-size:20px">피드백을 불러오지 못했어요</h2><p class="lead">${esc(geminiErrorText(e))}</p></div>`;}
 }
 
 function renderSelfReview(body){

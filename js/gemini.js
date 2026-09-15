@@ -4,8 +4,36 @@ import {S,store,PHASES} from './state.js';
 import {esc} from './utils.js';
 import {toast} from './toast.js';
 import {openSheet,closeSheet} from './lookup.js';
+import {audioRequestBody} from './pron-prompt.js';
 
 export function hasKey(){return !!(S.gemini&&S.gemini.key);}
+
+/* Every Gemini failure used to surface as "check your key", including the one a
+   free-tier user hits most: the daily request cap (20 per model per project on
+   gemini-2.5-flash at the time of writing). Being told to fix a working key sends
+   people chasing the wrong problem, so the message now names the actual cause.
+   Daily quotas reset at midnight Pacific time (Gemini API rate-limit docs); the reset
+   is shown in the viewer's local time. Across a DST switch it can be an hour off. */
+function nextPacificMidnight(now){
+  const parts=new Intl.DateTimeFormat('en-US',{timeZone:'America/Los_Angeles',hourCycle:'h23',hour:'2-digit',minute:'2-digit',second:'2-digit'}).formatToParts(now);
+  const g=t=>+(parts.find(p=>p.type===t)||{value:0}).value;
+  const into=g('hour')*3600+g('minute')*60+g('second');
+  return new Date(now.getTime()+(86400-into)*1000);
+}
+export function geminiErrorText(e){
+  const m=String((e&&e.message)||e||'');
+  const status=+((m.match(/^gemini (\d{3})/)||[])[1]||0);
+  if(status===429){
+    let when='';
+    try{when=nextPacificMidnight(new Date()).toLocaleTimeString('ko-KR',{hour:'numeric',minute:'2-digit'});}catch(x){}
+    return `오늘 Gemini 무료 사용량을 다 썼어요.${when?` ${when}에 다시 쓸 수 있어요.`:' 내일 다시 쓸 수 있어요.'} (키 문제가 아니에요)`;
+  }
+  if(status===503)return 'Gemini 서버가 지금 붐벼요. 잠시 후 다시 시도해 주세요.';
+  if(status===400&&/API[_ ]key/i.test(m))return 'Gemini 키가 올바르지 않아요. 🔑 Gemini 키를 다시 확인해 주세요.';
+  if(status===401||status===403)return 'Gemini 키 권한 문제예요. 🔑 Gemini 키를 다시 확인해 주세요.';
+  if(/Failed to fetch|NetworkError|Load failed/i.test(m))return '인터넷 연결을 확인하고 다시 시도해 주세요.';
+  return 'Gemini 응답을 받지 못했어요. 잠시 후 다시 시도해 주세요.';
+}
 
 export async function geminiCall(history,systemText,wantJSON){
   const model=(S.gemini.model||"gemini-2.5-flash").trim();
@@ -35,11 +63,7 @@ export async function geminiCall(history,systemText,wantJSON){
 export async function geminiAudioCall(prompt,wavBase64,systemText){
   const model=(S.gemini.model||"gemini-2.5-flash").trim();
   const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(S.gemini.key)}`;
-  const body={
-    contents:[{role:'user',parts:[{text:prompt},{inline_data:{mime_type:'audio/wav',data:wavBase64}}]}],
-    generationConfig:{temperature:.2,maxOutputTokens:2048,responseMimeType:"application/json"}
-  };
-  if(systemText)body.systemInstruction={parts:[{text:systemText}]};
+  const body=audioRequestBody(prompt,wavBase64,systemText);
   const res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   if(!res.ok){const t=await res.text();throw new Error("gemini "+res.status+" "+t.slice(0,160));}
   const data=await res.json();
@@ -93,7 +117,7 @@ export function openKeySheet(){
     <div class="term">🔑 AI 실시간 대화 설정</div>
     <p class="mean" style="color:var(--muted)">본인의 <b>Gemini 무료 API 키</b>를 넣으면 대화가 실시간 적응형으로 바뀌고 즉시 피드백을 받아요. 키는 <b>이 브라우저에만</b> 저장되고 Google로 직접 전송됩니다 (Claude 토큰과 무관).</p>
     <div class="field"><label>Gemini API Key</label>
-      <input id="gkey" type="password" placeholder="AIza…" value="${esc(g.key||'')}"></div>
+      <input id="gkey" type="password" placeholder="AIza… 또는 AQ.… 로 시작하는 키" value="${esc(g.key||'')}"></div>
     <div class="field"><label>모델 (기본 gemini-2.5-flash)</label>
       <input id="gmodel" placeholder="gemini-2.5-flash" value="${esc(g.model||'gemini-2.5-flash')}"></div>
     <div class="row">

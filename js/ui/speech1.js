@@ -214,8 +214,10 @@ async function renderFeedback(topic,text,secs){
     const n=(r.corrections||[]).length;
     toast(n?`교정 ${n}개가 이력에 기록됐어요 🕘`:'표현이 노트에 저장됐어요 📒');
   }catch(e){
+    const {geminiErrorText}=await import('../gemini.js');
+    const errText=geminiErrorText(e);
     app.innerHTML=shell(`<div class="eyebrow">Feedback</div><h2 style="font-size:20px">교정을 불러오지 못했어요</h2>
-      <p class="lead">Gemini 연결이나 키를 확인하고 다시 시도해 주세요. 말한 내용은 아래에 그대로 있어요.</p>
+      <p class="lead">${esc(errText)} 말한 내용은 아래에 그대로 있어요.</p>
       <div class="s1said">${esc(text)}</div>
       <button class="btn" id="s1retry2" style="margin-top:14px">다시 시도</button>`);
     document.getElementById('s1retry2').onclick=()=>renderFeedback(topic,text,secs);
