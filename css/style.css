@@ -387,3 +387,16 @@ button,.choice,.util,.pill,.switch,.tabs button{
 .s1struct b{color:var(--accent);margin-right:6px}
 .s1notice{background:#FFF7E8;border:1px solid #EAD9AE;border-radius:14px;padding:11px 13px;
   font-size:13px;line-height:1.5;color:var(--ink);margin-top:14px}
+
+/* AI pronunciation assessment (see shadow.js wireAIPron) */
+.pronw{border:1px solid var(--line);background:var(--surface-2);border-radius:14px;padding:11px 13px;margin-bottom:8px}
+.pronw .top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pronw .top b{font-family:"Karla",sans-serif;font-size:17px;font-weight:600}
+.pronw .top .heard{font-size:12.5px;color:var(--live)}
+.pronw .top button{margin-left:auto;width:38px;height:38px;border-radius:50%;border:1px solid var(--line);background:var(--surface)}
+.pronw .issue{font-size:13px;margin-top:5px}
+.pronw .tip{font-size:13px;color:var(--ok);margin-top:3px}
+.pronheard{margin-top:12px;font-size:13px}
+.pronheard summary{cursor:pointer;color:var(--accent);font-weight:600;padding:6px 0}
+.pronheard div{background:var(--surface-2);border-radius:12px;padding:10px 12px;line-height:1.55;font-family:"Karla",sans-serif}
+button:disabled.mic-live,.btn:disabled{opacity:.6}

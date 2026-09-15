@@ -24,6 +24,30 @@ export async function geminiCall(history,systemText,wantJSON){
   return text;
 }
 
+/* Sends a recording for the model to listen to, with a text instruction alongside.
+   Part shape per the generateContent reference: inline_data {mime_type, data(base64)}.
+
+   Temperature is low on purpose. An assessment that comes back different every time
+   you submit the same take is not an assessment, and the scores feed a trend chart.
+   The output budget is larger than geminiCall's because a per-word breakdown is long,
+   and on 2.5 models thinking tokens are drawn from the same budget - a tight cap
+   truncates the JSON mid-object. */
+export async function geminiAudioCall(prompt,wavBase64,systemText){
+  const model=(S.gemini.model||"gemini-2.5-flash").trim();
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(S.gemini.key)}`;
+  const body={
+    contents:[{role:'user',parts:[{text:prompt},{inline_data:{mime_type:'audio/wav',data:wavBase64}}]}],
+    generationConfig:{temperature:.2,maxOutputTokens:2048,responseMimeType:"application/json"}
+  };
+  if(systemText)body.systemInstruction={parts:[{text:systemText}]};
+  const res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!res.ok){const t=await res.text();throw new Error("gemini "+res.status+" "+t.slice(0,160));}
+  const data=await res.json();
+  const text=((data.candidates&&data.candidates[0]&&data.candidates[0].content&&data.candidates[0].content.parts)||[]).map(p=>p.text||"").join("").trim();
+  if(!text)throw new Error("gemini empty response"+(data.candidates&&data.candidates[0]?" ("+data.candidates[0].finishReason+")":""));
+  return JSON.parse(text.replace(/```json|```/g,"").trim());
+}
+
 /* Streams a plain-text reply (no JSON mode — structured output can't be parsed
    incrementally and adds latency). Calls onDelta(chunkText) as text arrives and
    resolves with the full accumulated reply. Used for the AI chat's live reply so

@@ -74,9 +74,13 @@ function paintPara(body,seg,p){
     <div class="gloss"><h4>Key expressions</h4>${gloss.map(g=>`<div class="g"><b>${esc(g.en)}</b><span>${esc(g.ko)}</span></div>`).join('')}</div>
     <button class="btn ghost small" id="saveGloss" style="margin-top:12px">＋ 이 표현들 노트에 저장</button>
     <div style="border-top:1px solid var(--line);margin:18px 0 0;padding-top:16px">
-      <div class="eyebrow" style="margin-bottom:6px">발음 체크</div>
-      <p class="lead" style="font-size:13px;margin:0 0 12px">버튼을 누르고 위 지문을 <b>소리 내어 읽어보세요</b>. 다 읽으면 다시 눌러 멈춰요. 읽은 걸 원문과 대조해 어색하게 걸린 단어를 짚어드려요.</p>
-      <button class="btn" id="pronBtn">🎙 읽고 발음 체크</button>
+      ${hasKey()?`<div class="eyebrow" style="margin-bottom:6px">AI 발음 평가</div>
+      <p class="lead" style="font-size:13px;margin:0 0 12px">버튼을 누르고 위 지문을 <b>소리 내어 읽어보세요</b>. 다 읽으면 다시 눌러 멈춰요. 녹음을 AI가 <b>직접 듣고</b> 어떤 소리가 어긋났는지 짚어드려요.</p>
+      <button class="btn" id="pronBtn">🎙 읽고 발음 평가받기</button>`
+      :`<div class="eyebrow" style="margin-bottom:6px">읽기 일치도 체크</div>
+      <p class="lead" style="font-size:13px;margin:0 0 12px">버튼을 누르고 위 지문을 <b>소리 내어 읽어보세요</b>. 음성인식이 원문 단어를 알아들었는지 대조해요.
+        <span style="color:var(--muted)">이건 발음 평가가 아니에요 — 인식기는 문맥으로 단어를 보정하거든요. Gemini 키를 넣으면 AI가 녹음을 직접 듣고 발음을 평가해요.</span></p>
+      <button class="btn" id="pronBtn">🎙 읽고 일치도 체크</button>`}
       <div class="interim" id="pronInterim"></div>
       <div id="pronResult"></div>
     </div>
@@ -94,13 +98,115 @@ function paintPara(body,seg,p){
   const pronBtn=document.getElementById('pronBtn');
   const pronInterim=document.getElementById('pronInterim');
   const pronResult=document.getElementById('pronResult');
+  if(hasKey())return wireAIPron(pronBtn,pronInterim,pronResult,para);
   wireMicButton(pronBtn,{
     continuous:true,
     interimEl:pronInterim,
-    onStart:()=>{pronBtn.textContent='⏹ 멈추고 채점';pronResult.innerHTML='';},
-    onStop:()=>{pronBtn.textContent='🎙 읽고 발음 체크';},
+    onStart:()=>{pronBtn.textContent='⏹ 멈추고 대조';pronResult.innerHTML='';},
+    onStop:()=>{pronBtn.textContent='🎙 읽고 일치도 체크';},
     onFinalText:said=>gradePron(para,said,pronResult)
   });
+}
+
+/* ---- AI pronunciation assessment: the model hears the recording itself ---- */
+const PRON_BANDS=[[90,'원어민에 가깝게 또렷해요'],[75,'억양은 있지만 명확해요'],[60,'알아듣지만 어긋나는 소리가 있어요'],[40,'오류가 이해를 방해해요'],[0,'알아듣기 어려워요']];
+const band=sc=>(PRON_BANDS.find(b=>sc>=b[0])||PRON_BANDS[PRON_BANDS.length-1])[1];
+
+function wireAIPron(btn,interim,result,ref){
+  let rec=null,busy=false;
+  const idle=()=>{btn.textContent='🎙 읽고 발음 평가받기';btn.classList.remove('mic-live');btn.disabled=false;};
+  btn.onclick=async()=>{
+    if(busy)return;
+    if(rec){                       // second tap: stop and assess
+      const r=rec;rec=null;busy=true;
+      btn.textContent='평가 중…';btn.classList.remove('mic-live');btn.disabled=true;
+      interim.textContent='';
+      try{
+        const take=await r.stop();
+        if(take.silent){
+          result.innerHTML=`<div class="summary" style="margin-top:12px">소리가 거의 녹음되지 않았어요. 마이크에 가까이 대고 다시 읽어보세요.</div>`;
+        }else{
+          result.innerHTML=`<p class="lead" style="font-size:13px;margin-top:12px"><span class="spin dark"></span> AI가 녹음을 듣고 있어요… (${Math.round(take.ms/1000)}초)</p>`;
+          await assessPron(ref,take,result);
+        }
+      }catch(e){
+        result.innerHTML=`<div class="summary" style="margin-top:12px">평가를 불러오지 못했어요. 네트워크나 Gemini 키를 확인하고 다시 시도해 주세요.<br><span style="font-size:12px;color:var(--muted)">${esc(String(e.message||e).slice(0,120))}</span></div>`;
+      }
+      busy=false;idle();
+      return;
+    }
+    /* first tap: the microphone has to be opened inside this tap */
+    const {audioRecSupported,startRecording}=await import('../audio-rec.js');
+    if(!audioRecSupported()){
+      result.innerHTML=`<div class="summary" style="margin-top:12px">이 브라우저는 녹음을 지원하지 않아요. Chrome이나 Safari에서 열어주세요.</div>`;
+      return;
+    }
+    result.innerHTML='';
+    try{
+      rec=await startRecording({onAutoStop:()=>{if(rec)btn.click();}});
+    }catch(e){
+      rec=null;
+      result.innerHTML=`<div class="summary" style="margin-top:12px">마이크를 쓸 수 없어요. 권한을 허용하거나, 카톡·네이버 안에서 열었다면 Chrome으로 열어주세요.</div>`;
+      return;
+    }
+    btn.textContent='⏹ 다 읽었어요 · 평가받기';btn.classList.add('mic-live');
+    interim.innerHTML='<b>🎙 녹음 중</b> — 지문을 끝까지 읽고 버튼을 눌러주세요 (최대 60초)';
+  };
+}
+
+async function assessPron(ref,take,result){
+  const {geminiAudioCall}=await import('../gemini.js');
+  /* Two guards against the failure this feature exists to fix: confident feedback
+     about errors nobody made. "heard" makes the model commit to what it actually heard
+     before it critiques, and is shown to the user so they can check it listened.
+     "audible" gives it a sanctioned way to call a take unusable instead of inventing an
+     assessment. Deliberately no list of "typical Korean-speaker errors": naming them
+     primes the model to report them whether or not they occurred. */
+  const sys="You are an English pronunciation coach for a Korean learner. You receive an audio recording and the reference text the learner tried to read aloud. Base every judgment strictly on what is audible in the recording. Never report an error you cannot actually hear. If the recording is silent, unintelligible, or is not an attempt at the reference text, set audible to false and return an empty words list. Return ONLY JSON.";
+  const prompt=`Reference text the learner was reading aloud:
+"""${ref}"""
+
+Listen to the attached recording and return JSON with exactly these fields:
+{
+ "audible": true or false,
+ "heard": "verbatim transcript of what you actually heard, keeping misread, mispronounced or skipped words as they were spoken",
+ "score": integer 0-100 for pronunciation accuracy and intelligibility,
+ "fluency": "one Korean sentence about pace, pauses and rhythm",
+ "strengths": "one Korean sentence about what sounded good",
+ "focus": "one Korean sentence: the single most useful thing to practice next",
+ "words": [{"word":"the reference word","heard":"how it actually sounded","issue":"short Korean description of the sound problem","tip":"short Korean instruction for producing it correctly"}]
+}
+words: at most 6, only problems clearly audible in the recording, most damaging to intelligibility first, [] if none.
+score rubric: 90-100 near-native clarity; 75-89 clear with a noticeable accent; 60-74 understandable with clear errors; 40-59 errors interfere with understanding; below 40 hard to understand.`;
+
+  const r=await geminiAudioCall(prompt,take.wavBase64,sys);
+  const {logMistake,logScore}=await import('../history.js');
+
+  if(r.audible===false){
+    result.innerHTML=`<div class="summary" style="margin-top:12px">AI가 녹음을 제대로 알아듣지 못했어요. 조용한 곳에서 지문을 또박또박 다시 읽어보세요.
+      ${r.heard?`<br><span style="font-size:12.5px;color:var(--muted)">들린 내용: “${esc(r.heard)}”</span>`:''}</div>`;
+    return;
+  }
+  const sc=Math.max(0,Math.min(100,Math.round(+r.score||0)));
+  const words=(Array.isArray(r.words)?r.words:[]).filter(w=>w&&w.word).slice(0,6);
+  result.innerHTML=`
+    <div style="margin-top:14px">
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:4px"><div class="acc">${sc}</div><div style="color:var(--muted);font-size:13px">AI 발음 점수 · ${esc(band(sc))}</div></div>
+      ${r.strengths?`<div class="summary" style="margin-top:8px">👍 ${esc(r.strengths)}${r.focus?`<br>🎯 ${esc(r.focus)}`:''}</div>`:''}
+      ${r.fluency?`<div class="s1struct"><b>리듬</b> ${esc(r.fluency)}</div>`:''}
+      ${words.length?`<div class="eyebrow" style="margin:16px 0 8px">어긋난 소리 — 🔊 눌러 원어민 발음 듣기</div>
+        ${words.map((w,i)=>`<div class="pronw">
+          <div class="top"><b>${esc(w.word)}</b>${w.heard?`<span class="heard">“${esc(w.heard)}”로 들림</span>`:''}<button data-pw="${i}" aria-label="발음 듣기">🔊</button></div>
+          ${w.issue?`<div class="issue">${esc(w.issue)}</div>`:''}
+          ${w.tip?`<div class="tip">💡 ${esc(w.tip)}</div>`:''}
+        </div>`).join('')}`
+        :`<div class="summary" style="background:#EEF7F1;margin-top:10px">뚜렷하게 어긋난 소리는 없었어요 👏</div>`}
+      ${r.heard?`<details class="pronheard"><summary>AI가 들은 내용 확인하기</summary><div>${esc(r.heard)}</div></details>`:''}
+      <p class="lead" style="font-size:11.5px;margin:10px 0 0">AI가 압축된 녹음을 듣고 판단한 결과라 전문 발음 분석기만큼 정밀하진 않아요. "들은 내용"이 실제와 많이 다르면 점수는 참고만 하세요.</p>
+    </div>`;
+  result.querySelectorAll('[data-pw]').forEach(b=>b.onclick=()=>speak(words[+b.dataset.pw].word,.6));
+  for(const w of words)await logMistake({you:w.heard?`(${w.heard})`:'(발음 불명확)',better:w.word,note:[w.issue,w.tip].filter(Boolean).join(' · '),source:'발음'});
+  await logScore('pron-ai',sc);
 }
 async function gradePron(ref,said,resultEl){
   if(!said){resultEl.innerHTML=`<p class="lead" style="font-size:13px;margin-top:12px">인식된 말이 없어요. 조용한 곳에서 마이크에 가까이 다시 읽어보세요.</p>`;return;}
@@ -116,27 +222,17 @@ async function gradePron(ref,said,resultEl){
   const top=bad.slice(0,10);
   resultEl.innerHTML=`
     <div style="margin-top:14px">
-      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px"><div class="acc">${acc}%</div><div style="color:var(--muted);font-size:13px">읽기 일치도 · ${hit}/${refN.length} 단어</div></div>
-      ${top.length?`<div style="font-size:13px;color:var(--muted);margin-bottom:4px">걸린 단어(발음 확인 추천) — 눌러서 천천히 듣기</div>
+      <div style="display:flex;align-items:baseline;gap:12px;margin-bottom:8px"><div class="acc">${acc}%</div><div style="color:var(--muted);font-size:13px">인식 일치도 · ${hit}/${refN.length} 단어</div></div>
+      ${top.length?`<div style="font-size:13px;color:var(--muted);margin-bottom:4px">인식되지 않은 단어 — 눌러서 천천히 듣기</div>
         <div>${top.map(w=>`<button class="pill bad" data-pw="${esc(w)}">${esc(w)} 🔊</button>`).join('')}</div>`:`<div class="summary" style="background:#EEF7F1">깔끔하게 읽혔어요! 👏</div>`}
       <div id="pronTip"></div>
     </div>`;
   resultEl.querySelectorAll('[data-pw]').forEach(b=>b.onclick=()=>speak(b.dataset.pw,.55));
   // log a few to history
   const {logMistake,logScore}=await import('../history.js');
-  for(const w of top.slice(0,5))await logMistake({you:'(발음 불명확)',better:w,note:'발음 체크에서 걸린 단어',source:'발음'});
-  await logScore('pronunciation',acc);
-  // AI pronunciation tips if key
-  if(hasKey()&&top.length){
-    const tipEl=document.getElementById('pronTip');
-    tipEl.innerHTML=`<p class="lead" style="font-size:13px;margin-top:10px"><span class="spin dark"></span> 발음 팁 생성 중…</p>`;
-    try{
-      const sys="You are a pronunciation coach for a Korean English learner. Return ONLY JSON.";
-      const prompt=`The learner read this text aloud:\n"${ref}"\nSpeech recognition heard:\n"${said}"\nThe following words likely came out unclear or awkward: ${top.join(', ')}.\nGive 2-4 concise Korean pronunciation tips for those words (stress, vowel/consonant sounds, linking). Return JSON: {"tips":[{"word":"...","tip":"Korean tip"}]}`;
-      const r=await geminiCall([{role:'user',content:prompt}],sys,true);
-      tipEl.innerHTML=`<div class="summary" style="margin-top:12px"><b>🗣 발음 팁</b><br>${(r.tips||[]).map(t=>`• <b>${esc(t.word)}</b> — ${esc(t.tip)}`).join('<br>')}</div>`;
-    }catch(e){tipEl.innerHTML='';}
-  }else if(top.length){
-    document.getElementById('pronTip').innerHTML=`<p class="lead" style="font-size:12.5px;margin-top:10px">🔊 버튼으로 원어민 발음을 천천히 듣고 따라 해보세요. (Gemini 키를 넣으면 단어별 한국어 발음 팁도 받을 수 있어요.)</p>`;
+  for(const w of top.slice(0,5))await logMistake({you:'(발음 불명확)',better:w,note:'읽기 일치도 체크에서 인식되지 않은 단어',source:'읽기'});
+  await logScore('reading',acc);
+  if(top.length){
+    document.getElementById('pronTip').innerHTML=`<p class="lead" style="font-size:12.5px;margin-top:10px">🔊 버튼으로 원어민 발음을 천천히 듣고 따라 해보세요. 인식기가 못 알아들은 단어라 발음 문제일 수도, 인식 오류일 수도 있어요.</p>`;
   }
 }
