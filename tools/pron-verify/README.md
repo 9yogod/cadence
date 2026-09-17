@@ -56,3 +56,13 @@ skipped words exactly as spoken, never corrected toward the reference".
 
 Given the isolated-word result, a likelier fix for minimal pairs is structural rather
 than wording: drill them as words, where the model does hear them.
+
+## Confirmed on a real voice, 2026-09-17
+
+The word drill was tried on a phone with a real Korean speaker: reading *think*
+deliberately as "싱크" was flagged. That is the substitution the sentence-level
+assessment misses, so the isolated-word finding above holds outside the synthetic test
+audio, and drilling these contrasts as words is the right structure for them.
+
+Still open: the false-positive side - whether a correctly produced word is ever marked
+wrong. That needs more attempts than one sitting gives.
