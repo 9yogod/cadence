@@ -35,6 +35,24 @@ export function geminiErrorText(e){
   return 'Gemini 응답을 받지 못했어요. 잠시 후 다시 시도해 주세요.';
 }
 
+/* A free-tier key allows a fixed number of requests per model per day (20 on
+   gemini-2.5-flash when this was written), and nothing in the API tells you how much of
+   it is left until it refuses. Counting our own calls locally is approximate - it can't
+   see usage from another device or app - but it's the difference between "the app
+   stopped working" and "I've used 18 of about 20 today". */
+export async function noteUsage(){
+  const today=new Date().toISOString().slice(0,10);
+  const u=await store.get("usage:gemini",{date:today,count:0});
+  const next=(u.date===today)?{date:today,count:(u.count||0)+1}:{date:today,count:1};
+  await store.set("usage:gemini",next);
+  return next;
+}
+export async function usageToday(){
+  const today=new Date().toISOString().slice(0,10);
+  const u=await store.get("usage:gemini",{date:today,count:0});
+  return u.date===today?(u.count||0):0;
+}
+
 export async function geminiCall(history,systemText,wantJSON){
   const model=(S.gemini.model||"gemini-2.5-flash").trim();
   const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(S.gemini.key)}`;
@@ -44,6 +62,7 @@ export async function geminiCall(history,systemText,wantJSON){
   };
   if(systemText)body.systemInstruction={parts:[{text:systemText}]};
   if(wantJSON)body.generationConfig.responseMimeType="application/json";
+  await noteUsage();
   const res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   if(!res.ok){const t=await res.text();throw new Error("gemini "+res.status+" "+t.slice(0,120));}
   const data=await res.json();
@@ -64,6 +83,7 @@ export async function geminiAudioCall(prompt,wavBase64,systemText){
   const model=(S.gemini.model||"gemini-2.5-flash").trim();
   const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(S.gemini.key)}`;
   const body=audioRequestBody(prompt,wavBase64,systemText);
+  await noteUsage();
   const res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   if(!res.ok){const t=await res.text();throw new Error("gemini "+res.status+" "+t.slice(0,160));}
   const data=await res.json();
@@ -84,6 +104,7 @@ export async function geminiStreamCall(history,systemText,onDelta){
     generationConfig:{temperature:.85,maxOutputTokens:400}
   };
   if(systemText)body.systemInstruction={parts:[{text:systemText}]};
+  await noteUsage();
   const res=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
   if(!res.ok||!res.body){const t=await res.text().catch(()=>'');throw new Error("gemini "+res.status+" "+t.slice(0,120));}
   const reader=res.body.getReader();
@@ -111,8 +132,9 @@ export async function geminiStreamCall(history,systemText,onDelta){
   return full;
 }
 
-export function openKeySheet(){
+export async function openKeySheet(){
   const g=S.gemini||{};
+  const used=await usageToday();
   openSheet(`
     <div class="term">🔑 AI 실시간 대화 설정</div>
     <p class="mean" style="color:var(--muted)">본인의 <b>Gemini 무료 API 키</b>를 넣으면 대화가 실시간 적응형으로 바뀌고 즉시 피드백을 받아요. 키는 <b>이 브라우저에만</b> 저장되고 Google로 직접 전송됩니다 (Claude 토큰과 무관).</p>
@@ -125,6 +147,9 @@ export function openKeySheet(){
       <button class="btn ghost small" id="gclear">키 삭제</button>
       <button class="btn ghost small" id="gclose">닫기</button>
     </div>
+    ${hasKey()?`<p class="lead" style="font-size:12.5px;margin:12px 0 0">오늘 이 앱에서 보낸 AI 요청 <b>${used}회</b>.
+      무료 키는 보통 <b>모델당 하루 20회</b>까지예요 (자정 기준 태평양 시간에 초기화 · 한국시간 오후 4~5시).
+      모델을 바꾸면 한도가 따로 계산돼요.</p>`:''}
     <p class="lead" style="font-size:12px;margin:12px 0 0">키 발급: <a class="link" id="gget">Google AI Studio</a>에서 무료로 만들 수 있어요. 배포(예: Netlify) 시엔 키에 사용 제한(HTTP 리퍼러)을 걸어 두세요.</p>`);
   document.getElementById('gget').onclick=()=>window.open('https://aistudio.google.com/app/apikey','_blank');
   document.getElementById('gsave').onclick=async()=>{

@@ -18,6 +18,7 @@ import {ensureAll} from './srs.js';
   S.gemini=await store.get("settings:gemini",{key:"",model:"gemini-2.5-flash"});
   S.level=await store.get("settings:level","int");S.dictLevel=S.level;
   S.auto=await store.get("settings:auto",false);
+  S.liveFb=await store.get("settings:liveFeedback",false);
   S.skill=await store.get("settings:skill",50);
   await loadInstallState();
   updateNoteCount();renderStart();

@@ -1,7 +1,7 @@
 /* Phase 3 (Conversation): either a live Gemini roleplay chat, or an offline scripted
    scenario when no key is set. Both mic inputs use the shared wireMicButton helper with a
    live interim caption while the learner speaks. */
-import {S,effLevel} from '../state.js';
+import {S,store,effLevel} from '../state.js';
 import {wordWrap,esc} from '../utils.js';
 import {speak,speakQueued,wireMicButton} from '../speech.js';
 import {hasKey,geminiCall,geminiStreamCall,openKeySheet} from '../gemini.js';
@@ -94,12 +94,27 @@ function renderAIChat(body,seg,wire){
     <div class="composer"><button class="iconbtn" id="mic" title="말하기">🎙</button>
       <textarea id="msg" rows="1" placeholder="영어로 답해보세요…"></textarea><button class="iconbtn send" id="send">➤</button></div>
     <div class="interim" id="msgInterim"></div>
-    <p class="lead" style="font-size:12.5px;margin:10px 0 0">마이크로 말하면 자동으로 전송돼요. 답변마다 더 자연스러운 표현을 바로 알려줘요. 교정은 🕘 이력에 자동 저장.</p></div>`;
+    <div class="toggle" id="liveFbRow" role="button" tabindex="0" aria-pressed="${S.liveFb?'true':'false'}">
+      <span class="switch${S.liveFb?' on':''}"><b></b></span>
+      <span>답변마다 즉시 교정 <span style="color:var(--muted)">· AI 요청을 2배로 써요</span></span>
+    </div>
+    <p class="lead" style="font-size:12.5px;margin:10px 0 0">마이크로 말하면 자동으로 전송돼요. 교정은 <b>리뷰 단계</b>에서 한 번에 받고, 🕘 이력에 자동 저장.</p></div>`;
   wire();
   const chat=document.getElementById('chat'),msg=document.getElementById('msg');
   msg.addEventListener('input',()=>{msg.style.height='auto';msg.style.height=Math.min(msg.scrollHeight,120)+'px';});
   msg.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
   document.getElementById('send').onclick=send;
+  const fbRow=document.getElementById('liveFbRow');
+  const toggleFb=async()=>{
+    S.liveFb=!S.liveFb;
+    await store.set("settings:liveFeedback",S.liveFb);
+    fbRow.querySelector('.switch').classList.toggle('on',S.liveFb);
+    fbRow.setAttribute('aria-pressed',S.liveFb?'true':'false');
+    const {toast}=await import('../toast.js');
+    toast(S.liveFb?'즉시 교정 켜짐 — 요청을 2배로 써요':'즉시 교정 꺼짐 — 교정은 리뷰 단계에서 한 번에 받아요');
+  };
+  fbRow.onclick=toggleFb;
+  fbRow.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();toggleFb();}};
   wireMicButton(document.getElementById('mic'),{
     interimEl:document.getElementById('msgInterim'),
     onFinalText:t=>{if(t){msg.value=(msg.value+' '+t).trim();msg.dispatchEvent(new Event('input'));send();}}
@@ -150,7 +165,9 @@ function renderAIChat(body,seg,wire){
     try{
       const reply=await streamReplyIntoBubble(S.chat,aiReplySystem(),t);
       S.chat.push({role:'assistant',content:reply||"Got it — tell me more!"});
-      fetchCorrection(text);
+      /* Off by default: this doubles requests per turn, and the 리뷰 phase already
+         analyses every line of the conversation at the end for one request. */
+      if(S.liveFb)fetchCorrection(text);
     }catch(e){t.classList.remove('think');t.textContent="음… 다시 한 번 말해줄래요?";aiError(e);}}
   async function aiError(e){const {toast}=await import('../toast.js');const {geminiErrorText}=await import('../gemini.js');toast(geminiErrorText(e),'err');}
 }

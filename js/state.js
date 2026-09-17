@@ -25,7 +25,7 @@ export const PHASES=[
 
 export const S={
  mode:"work",phase:0,running:false,remaining:0,tick:null,
- level:"int",dictLevel:"int",auto:false,skill:50,
+ level:"int",dictLevel:"int",auto:false,skill:50,liveFb:false,
  notes:[],stats:{sessions:0,lastDate:null,streak:0},
  mistakes:[],lookups:[],sessionRecs:[],scores:[],run:null,
  passage:null,scen:null,talkMode:"scenario",chat:[],
