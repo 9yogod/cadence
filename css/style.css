@@ -400,3 +400,24 @@ button,.choice,.util,.pill,.switch,.tabs button{
 .pronheard summary{cursor:pointer;color:var(--accent);font-weight:600;padding:6px 0}
 .pronheard div{background:var(--surface-2);border-radius:12px;padding:10px 12px;line-height:1.55;font-family:"Karla",sans-serif}
 button:disabled.mic-live,.btn:disabled{opacity:.6}
+
+/* Word-level pronunciation drill (see ui/wordpron.js) */
+.wplist{margin-top:14px}
+.wp{border:1px solid var(--line);background:var(--surface-2);border-radius:14px;padding:11px 13px;margin-bottom:8px}
+.wp.ok{background:#EEF7F1;border-color:#BFE0CC}
+.wp.bad{background:#FDECEC;border-color:#F0D2C2}
+.wp .top{display:flex;align-items:center;gap:9px}
+.wp .num{width:20px;height:20px;border-radius:50%;background:var(--surface);border:1px solid var(--line);
+  color:var(--muted);font-size:11px;display:grid;place-items:center;flex:0 0 auto}
+.wp .top b{font-family:"Karla",sans-serif;font-size:19px;font-weight:600}
+.wp .vs{font-size:12.5px;color:var(--muted)}
+.wp .mark{font-weight:700}
+.wp.ok .mark{color:var(--ok)}
+.wp.bad .mark{color:var(--live)}
+.wp .top button{margin-left:auto;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);flex:0 0 auto}
+.wp .heardline{font-size:13px;color:var(--live);margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.wp .heardline .cmp{margin-left:0;width:auto;height:auto;padding:3px 10px;border-radius:999px;font-size:12px;color:var(--ink)}
+.wp .tip{font-size:13px;color:var(--ok);margin-top:4px;line-height:1.5}
+.wp .note{font-size:12.5px;color:var(--muted);margin-top:3px}
+.wpscore{display:flex;align-items:baseline;gap:12px;margin:12px 0 2px}
+.wpscore div:last-child{font-size:13px;color:var(--muted)}

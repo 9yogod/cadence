@@ -45,3 +45,24 @@ export function audioRequestBody(prompt,wavBase64,systemText){
   if(systemText)body.systemInstruction={parts:[{text:systemText}]};
   return body;
 }
+
+/* Word drill. The sentence assessment misses substitutions that form another plausible
+   word because context resolves them; with isolated words there is no context to lean
+   on, so each word is judged on its sounds alone. The confusable counterpart is named
+   per word to make it a decision between two specific sounds rather than an open
+   judgment - and "heard" is still required first, so a wrong call can be seen. */
+export const WORDPRON_SYSTEM="You are an English pronunciation coach for a Korean learner. You receive a recording of single words read one at a time, and the list of words that were supposed to be said. Judge each word only by the sounds actually in the recording - there is no sentence context to rely on, so do not guess from the list what the speaker must have meant. Never mark a word correct because it is the expected word. Return ONLY JSON.";
+
+export function wordPronPrompt(round){
+  const lines=round.map((p,i)=>`${i+1}. ${p.a}   (counts as wrong if it sounds like: ${p.b})`).join('\n');
+  return `The learner was asked to read these words aloud, one at a time, in this order:
+${lines}
+
+Listen to the recording and return JSON:
+{
+ "audible": true or false,
+ "heard": "the words you heard, in order, separated by spaces, exactly as they sounded",
+ "words": [{"index":1,"target":"the expected word","heard":"what that position actually sounded like","correct":true or false,"note":"at most one short Korean sentence, only when it is wrong"}]
+}
+One entry per expected word, in order. correct is true only when the sounds match the expected word rather than its confusable counterpart. If a position is missing or unintelligible, set correct false and heard "". If the recording is silent or is not someone reading these words, set audible false.`;
+}

@@ -10,11 +10,13 @@ import {installCardHTML,wireInstallCard,openInstallSheet,isStandalone} from '../
 import {ensureAll,dueCount} from '../srs.js';
 import {startQuickReview} from './quick.js';
 import {startSpeech1} from './speech1.js';
+import {startWordPron} from './wordpron.js';
 import {cancelSpeech} from '../speech.js';
 
 const FLAME=`<svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c1 3-2 4-2 7a4 4 0 0 0 8 0c0-1-.5-2-1-2 .5 2-1 3-2 3-1.5 0-2-1.3-1.3-2.6C14.5 5.8 13 4 12 2z"/><path d="M8 13a4 4 0 1 0 8 0c0-1.5-1-2.5-1-2.5.3 1.6-.7 2.8-2 2.8s-2-1-1.7-2.4C10.6 12 8 12 8 13z"/></svg>`;
 const ICON_DICT=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1v-6h3v4zM3 19a2 2 0 0 0 2 2h1v-6H3v4z"/></svg>`;
 const ICON_TARGET=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.8" fill="currentColor"/></svg>`;
+const ICON_WAVE=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 12h2M8 7v10M12 4v16M16 8v8M20 11h-2"/></svg>`;
 const ICON_MIC=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>`;
 const ICON_PHONE=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18.5h2"/></svg>`;
 const ICON_KEY=`<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M17 6l2 2M14 9l2 2"/></svg>`;
@@ -64,6 +66,7 @@ export function renderStart(){
       <div class="eyebrow" style="margin-bottom:12px">더 해보기</div>
       <div class="utilrow">
         <button class="util" id="speech1Btn"><div class="uicon">${ICON_MIC}</div><span class="ulabel">1분 스피치</span></button>
+        <button class="util" id="wordPronBtn"><div class="uicon">${ICON_WAVE}</div><span class="ulabel">단어 발음</span></button>
         <button class="util" id="dictBtn"><div class="uicon">${ICON_DICT}</div><span class="ulabel">받아쓰기</span></button>
         <button class="util" id="levelTestBtn"><div class="uicon">${ICON_TARGET}</div><span class="ulabel">레벨 확인</span></button>
         <button class="util" id="keyBtn"><div class="uicon">${ICON_KEY}${hasKey()?'<span class="dot"></span>':''}</div><span class="ulabel">Gemini 키</span></button>
@@ -76,6 +79,7 @@ export function renderStart(){
   wireInstallCard();
   const ib=document.getElementById('installBtn');if(ib)ib.onclick=openInstallSheet;
   document.getElementById('speech1Btn').onclick=startSpeech1;
+  document.getElementById('wordPronBtn').onclick=startWordPron;
   document.getElementById('dictBtn').onclick=startDictation;
   document.getElementById('keyBtn').onclick=openKeySheet;
   app.querySelectorAll('#modeSel .choice').forEach(b=>b.onclick=()=>{

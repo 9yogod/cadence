@@ -46,14 +46,10 @@ async function genParagraph(){
 }
 async function renderShadowParagraph(body,seg){
   let p=S.paraPassage;
-  if(!p){
-    if(hasKey()){
-      body.innerHTML=`<div class="card">${seg}<div class="eyebrow">Shadowing · 문단</div><h2 style="font-size:20px">지문 준비 중…</h2><p class="lead"><span class="spin dark"></span> AI가 새 칼럼형 지문을 쓰고 있어요.</p></div>`;
-      bindSeg(body);
-      try{p=await genParagraph();}catch(e){p=pickLong();const {toast}=await import('../toast.js');const {geminiErrorText}=await import('../gemini.js');toast('내장 지문으로 대체했어요 — '+geminiErrorText(e),'err');}
-    }else{p=pickLong();}
-    S.paraPassage=p;
-  }
+  /* Built-in passage by default. Generating one costs a Gemini request every time the
+     shadowing phase opens - a third of a free day's budget across a session - and the
+     🔄 새 지문 button already exists for when a fresh passage is actually wanted. */
+  if(!p){p=pickLong();S.paraPassage=p;}
   paintPara(body,seg,p);
 }
 function paintPara(body,seg,p){
@@ -67,7 +63,7 @@ function paintPara(body,seg,p){
       <button class="btn small" id="listen">🔊 전체 듣기</button>
       <button class="btn ghost small" id="listenSlow">🐢 천천히</button>
       <button class="btn ghost small" id="stopS">⏹</button>
-      ${hasKey()?`<button class="btn ghost small" id="regen">🔄 새 지문</button>`:''}
+      ${hasKey()?`<button class="btn ghost small" id="regen">🔄 AI 새 지문 (요청 1회)</button>`:''}
     </div>
     <div class="script read lookup" id="paraText">${wordWrap(para)}</div>
     ${p.paragraph_ko?`<div class="gloss"><h4>한글 해석</h4><p class="lead" style="margin:0;line-height:1.7">${esc(p.paragraph_ko)}</p></div>`:''}
@@ -92,7 +88,16 @@ function paintPara(body,seg,p){
   document.getElementById('stopS').onclick=()=>cancelSpeech();
   document.getElementById('saveGloss').onclick=async()=>{const {addNotes}=await import('../notes.js');const {toast}=await import('../toast.js');await addNotes(gloss);toast("표현을 노트에 저장했어요 📒");};
   const rg=document.getElementById('regen');
-  if(rg)rg.onclick=()=>{S.paraPassage=null;renderShadow(body);};
+  if(rg)rg.onclick=async()=>{
+    rg.disabled=true;rg.textContent='만드는 중…';
+    try{S.paraPassage=await genParagraph();}
+    catch(e){
+      S.paraPassage=pickLong();
+      const {toast}=await import('../toast.js');const {geminiErrorText}=await import('../gemini.js');
+      toast('내장 지문으로 대체했어요 — '+geminiErrorText(e),'err');
+    }
+    renderShadow(body);
+  };
 
   /* pronunciation check: unified mic wiring with live interim caption */
   const pronBtn=document.getElementById('pronBtn');

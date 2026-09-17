@@ -5,7 +5,7 @@
 const W=600,H=160,PAD={l:30,r:14,t:14,b:14};
 /* 'pronunciation' is the legacy key: it was always a speech-recognition word match,
    never a pronunciation measure, so it is labelled for what it measured. */
-const TYPE_LABEL={dictation:'받아쓰기',pronunciation:'읽기 일치도',reading:'읽기 일치도','pron-ai':'AI 발음'};
+const TYPE_LABEL={dictation:'받아쓰기',pronunciation:'읽기 일치도',reading:'읽기 일치도','pron-ai':'AI 발음','pron-word':'단어 발음'};
 
 function xAt(i,n){return n<=1?W-PAD.r:PAD.l+(i/(n-1))*(W-PAD.l-PAD.r);}
 function yAt(acc){return H-PAD.b-(acc/100)*(H-PAD.t-PAD.b);}
