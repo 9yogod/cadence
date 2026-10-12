@@ -24,26 +24,33 @@ function warmupPool(){
 
 /* example-sentence corpus from built-in content */
 let CORPUS=null;
+/* {en, ko} pairs. Every built-in source carries a translation; a long passage's Korean is
+   paired sentence-by-sentence only when both sides split into the same number of
+   sentences — otherwise its sentences go in without one rather than mismatched. */
 function corpus(){if(CORPUS)return CORPUS;const out=[];
-  SHADOW.forEach(p=>p.sentences.forEach(s=>out.push(s.en)));
-  LONGSHADOW.forEach(p=>splitSents(p.paragraph).forEach(x=>out.push(x)));
-  DICT.forEach(d=>out.push(d.en));
-  TATOEBA.forEach(d=>out.push(d.en));
-  SCEN.forEach(sc=>sc.turns.forEach(t=>{out.push(t.p.en);out.push(t.m.en);}));
+  SHADOW.forEach(p=>p.sentences.forEach(s=>out.push({en:s.en,ko:s.ko})));
+  LONGSHADOW.forEach(p=>{const en=splitSents(p.paragraph),ko=splitSents(p.paragraph_ko||'');
+    en.forEach((x,k)=>out.push({en:x,ko:en.length===ko.length?ko[k]:''}));});
+  DICT.forEach(d=>out.push({en:d.en,ko:d.ko}));
+  TATOEBA.forEach(d=>out.push({en:d.en,ko:d.ko}));
+  SCEN.forEach(sc=>sc.turns.forEach(t=>{out.push({en:t.p.en,ko:t.p.ko});out.push({en:t.m.en,ko:t.m.ko});}));
   CORPUS=out;return out;}
 function exprCore(expr){return (expr||'').toLowerCase().replace(/\(.*?\)/g,'').replace(/~ing/g,'').replace(/~/g,'').replace(/\s+/g,' ').trim();}
 function exampleFor(expr){const core=exprCore(expr);if(core.length<3)return null;const c=corpus();
   const tries=[core,core.split(' ').slice(0,3).join(' '),core.split(' ').slice(0,2).join(' ')];
-  for(const t of tries){if(t.length<3)continue;const hit=c.find(s=>s.toLowerCase().includes(t));if(hit)return hit;}return null;}
+  for(const t of tries){if(t.length<3)continue;const hit=c.find(s=>s.en.toLowerCase().includes(t));if(hit)return hit;}return null;}
 
+/* The output budget is raised from geminiCall's default because each example now comes
+   with its translation, and on 2.5 models thinking tokens share that budget. */
 async function fillExamplesAI(items){
-  const sys="Give ONE short, natural example sentence for each English expression. Return ONLY JSON.";
-  const prompt=`Write one short natural example sentence for each expression below.\n${items.map((x,i)=>(i+1)+'. '+x.en).join('\n')}\nReturn JSON: {"examples":[{"en":"the expression","ex":"an example sentence using it"}]}`;
-  const r=await geminiCall([{role:'user',content:prompt}],sys,true);
-  const map={};(r.examples||[]).forEach(e=>{if(e.en)map[e.en.toLowerCase().trim()]=e.ex;});return map;
+  const sys="Give ONE short, natural example sentence for each English expression, with a natural Korean translation. Return ONLY JSON.";
+  const prompt=`Write one short natural example sentence for each expression below, and translate each example into natural Korean.\n${items.map((x,i)=>(i+1)+'. '+x.en).join('\n')}\nReturn JSON: {"examples":[{"en":"the expression","ex":"an example sentence using it","ko":"Korean translation of the example"}]}`;
+  const r=await geminiCall([{role:'user',content:prompt}],sys,true,{maxTokens:1500});
+  const map={};(r.examples||[]).forEach(e=>{if(e.en)map[e.en.toLowerCase().trim()]={ex:e.ex,ko:e.ko||''};});return map;
 }
 function exLineHtml(e,i){
-  if(e.ex)return `예: <span class="lookup">${wordWrap(e.ex)}</span> <button class="pill" data-sayex="${i}">🔊 따라 말하기</button>`;
+  if(e.ex)return `예: <span class="lookup">${wordWrap(e.ex)}</span> <button class="pill" data-sayex="${i}">🔊 따라 말하기</button>${e.exKo?
+    ` <button class="pill" data-exko="${i}" aria-expanded="false">한글 보기</button><div class="exko" id="exko-${i}" hidden>${esc(e.exKo)}</div>`:''}`;
   if(hasKey())return `<span style="color:var(--muted)"><span class="spin dark"></span> 예문 생성 중…</span>`;
   return `<span style="color:var(--muted)">예문 없음</span>`;
 }
@@ -58,7 +65,7 @@ export async function renderReview(body){
   if(filled)picked=picked.concat(shuffle(warmupPool()).slice(0,N-picked.length));
   if(picked.length===0)picked=STARTER.map(s=>({...s,suggest:true}));
   const deck=shuffle(picked.slice());
-  deck.forEach(e=>{e.ex=exampleFor(e.en);});
+  deck.forEach(e=>{const x=exampleFor(e.en);e.ex=x?x.en:null;e.exKo=x?x.ko:'';});
   const first=S.notes.length===0;
   body.innerHTML=`<div class="card">
     <div class="eyebrow">Warm-up${filled&&!first?' · 쉐도잉 표현 자동 보충':''}</div><h2 style="font-size:21px">소리 내어 다시 말해보기</h2>
@@ -75,7 +82,9 @@ export async function renderReview(body){
         <button class="gbtn hard"  data-g="hard"  data-gi="${i}">애매</button>
         <button class="gbtn good"  data-g="good"  data-gi="${i}">알아요</button>
       </div>`}</div>`).join('')}</div></div>`;
-  function wireEx(){body.querySelectorAll('[data-sayex]').forEach(b=>b.onclick=()=>{const e=deck[+b.dataset.sayex];if(e.ex)speak(e.ex,.9);});}
+  function wireEx(){body.querySelectorAll('[data-sayex]').forEach(b=>b.onclick=()=>{const e=deck[+b.dataset.sayex];if(e.ex)speak(e.ex,.9);});
+    body.querySelectorAll('[data-exko]').forEach(b=>b.onclick=()=>{const k=document.getElementById('exko-'+b.dataset.exko);if(!k)return;
+      k.hidden=!k.hidden;b.setAttribute('aria-expanded',String(!k.hidden));b.textContent=k.hidden?'한글 보기':'한글 숨기기';});}
   body.querySelectorAll('[data-say]').forEach(b=>b.onclick=()=>speak(deck[+b.dataset.say].en));
   body.querySelectorAll('[data-add]').forEach(b=>b.onclick=async()=>{const e=deck[+b.dataset.add];await addNotes([{en:e.en,ko:e.ko}]);const {toast}=await import('../toast.js');toast('노트에 저장했어요 📒');});
   wireEx();
@@ -95,7 +104,7 @@ export async function renderReview(body){
     const missing=deck.map((e,i)=>({e,i})).filter(x=>!x.e.ex);
     if(missing.length){try{
       const map=await fillExamplesAI(missing.map(x=>x.e));
-      missing.forEach(x=>{const ex=map[x.e.en.toLowerCase().trim()];if(ex){x.e.ex=ex;const el=document.getElementById('ex-'+x.i);if(el)el.innerHTML=exLineHtml(x.e,x.i);}else{const el=document.getElementById('ex-'+x.i);if(el)el.innerHTML='';}});
+      missing.forEach(x=>{const ex=map[x.e.en.toLowerCase().trim()];if(ex&&ex.ex){x.e.ex=ex.ex;x.e.exKo=ex.ko;const el=document.getElementById('ex-'+x.i);if(el)el.innerHTML=exLineHtml(x.e,x.i);}else{const el=document.getElementById('ex-'+x.i);if(el)el.innerHTML='';}});
       wireEx();
     }catch(err){deck.forEach((e,i)=>{if(!e.ex){const el=document.getElementById('ex-'+i);if(el)el.innerHTML='';}});}}
   }

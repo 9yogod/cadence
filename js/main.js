@@ -26,3 +26,9 @@ import {ensureAll} from './srs.js';
 
 document.getElementById('openNotes').onclick=renderNotes;
 document.getElementById('openHist').onclick=()=>renderHistory('mistakes');
+/* The logo goes home from anywhere. Mid-session it asks first: leaving drops the
+   session's timer and progress, and a stray tap on the header shouldn't cost that. */
+document.getElementById('goHome').onclick=()=>{
+  if(document.getElementById('phaseBody')&&!confirm('진행 중인 세션을 그만두고 홈으로 갈까요?'))return;
+  renderStart();
+};

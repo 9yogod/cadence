@@ -53,12 +53,12 @@ export async function usageToday(){
   return u.date===today?(u.count||0):0;
 }
 
-export async function geminiCall(history,systemText,wantJSON){
+export async function geminiCall(history,systemText,wantJSON,{maxTokens=600}={}){
   const model=(S.gemini.model||"gemini-2.5-flash").trim();
   const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(S.gemini.key)}`;
   const body={
     contents:history.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]})),
-    generationConfig:{temperature:.85,maxOutputTokens:600}
+    generationConfig:{temperature:.85,maxOutputTokens:maxTokens}
   };
   if(systemText)body.systemInstruction={parts:[{text:systemText}]};
   if(wantJSON)body.generationConfig.responseMimeType="application/json";

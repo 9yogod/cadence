@@ -74,7 +74,7 @@ export function renderStart(){
       </div>
     </div>
 
-    <p class="lead" style="font-size:11px;text-align:center;margin:0">예문 일부는 <a class="link" href="https://tatoeba.org" target="_blank" rel="noopener">Tatoeba.org</a>에서 제공됩니다 (CC BY 2.0 FR)</p>`;
+    <p class="lead" style="font-size:11px;text-align:center;margin:0">예문 일부는 <a class="link" href="https://tatoeba.org" target="_blank" rel="noopener">Tatoeba.org</a>에서 제공됩니다 (CC BY 2.0 FR)<br>단어 뜻 일부는 <a class="link" href="https://ko.wiktionary.org" target="_blank" rel="noopener">위키낱말사전</a>에서 가져왔어요 (CC BY-SA 4.0)</p>`;
 
   wireInstallCard();
   const ib=document.getElementById('installBtn');if(ib)ib.onclick=openInstallSheet;
